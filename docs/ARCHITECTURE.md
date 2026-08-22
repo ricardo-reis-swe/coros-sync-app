@@ -679,7 +679,7 @@ revealed location is its own named, main-resolved intent; **a general `openPath(
 was refused**, so the renderer can open exactly the folders main chooses to expose and
 no others. A filesystem path must never cross IPC as a renderer-supplied value.
 
-### 8.4 The one network path
+### 8.4 The two network paths
 
 This section used to argue that a threat-model chapter was ceremony, because the app made
 **zero network requests in any code path**. ADR-0027 spent that argument. The chapter it
@@ -694,8 +694,9 @@ denies anything that is not the current URL. **The renderer still renders no rem
 content and still cannot open a socket.** Nothing downloaded is ever rendered — it is
 handed to ffprobe and ffmpeg as a file path and leaves as an mp3.
 
-**What is new is one adapter in main spawning one binary against a URL the user typed.**
-Five things bound it, and each is a line of code rather than a promise:
+**What is new is two acts in main, both of them things the user pressed.** The first is an
+adapter spawning one binary against a URL the user typed. Five things bound it, and each is a
+line of code rather than a promise:
 
 | Bound | Where | What it stops |
 |---|---|---|
@@ -705,15 +706,32 @@ Five things bound it, and each is a line of code rather than a promise:
 | `--ffmpeg-location` pinned to `resources/bin` | Download Adapter | yt-dlp finding some other ffmpeg on `PATH` — ours is the one built `--disable-network` |
 | `-o` is our own template; the remote title goes to a *file*, never a filename | Download Adapter | a crafted title deciding where bytes land, which is path traversal wearing a `%(title)s` |
 
+**The second is the updater (ADR-0056), and it is the sharper of the two**, because it ends
+with the app running a binary it fetched. Four things bound that:
+
+| Bound | What it stops |
+|---|---|
+| A **fixed** URL — `github.com/yt-dlp/yt-dlp/releases/latest/download/<asset>` | any user-supplied host; there is no field to poison, and the asset name comes from `process.platform`/`arch`, never from input |
+| `SHA2-256SUMS` checked **before** the file is made executable | a truncated or tampered transfer becoming a binary we spawn |
+| It writes `userData/bin/`, never `resources/bin/` | invalidating the macOS ad-hoc signature, which would stop the app launching at all |
+| Only a press starts it — no launch check, no background timer | the app phoning home, which is the clause ADR-0014 actually defends |
+
+**The honest limit of that checksum.** It ships from the same origin as the binary, so it
+defends against corruption and a broken transfer — **not** against a compromised GitHub, and
+there is no detached signature to check instead. Saying so is the point: a checksum believed to
+prove more than it does is worse than none.
+
 **The residual risk, named rather than engineered around.** yt-dlp is a large program that
-parses hostile HTML for a living, and `ytdlpPath` (ADR-0055) lets the user point the app at
-a binary we did not ship. Both are accepted: the first is the feature, and the second is a
-user electing to run their own executable, which they could do without us. What the design
+parses hostile HTML for a living; `ytdlpPath` (ADR-0055) lets the user point the app at a
+binary we did not ship; and ADR-0056 will fetch one on request. All three are accepted: the
+first is the feature, and the other two are a user electing to run an executable they chose,
+which they could do without us. What the design
 does *not* do is discover one — `ytdlpPath` is read, validated and used, never searched for
 (the `locateMount()` rule, ADR-0016).
 
 **The offline guarantee is now partial, and that is the honest claim.** Every path that
-existed before still works with no network. One new path does not.
+existed before still works with no network. Two new ones do not, and neither runs unless
+pressed — so the app is offline until the user asks it not to be.
 
 *(Error handling, persistence and testing are excluded for the opposite reason — each is
 settled in one place already. Having a home is what disqualifies them from being

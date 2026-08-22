@@ -175,6 +175,7 @@ or refused intent look like a button that did nothing.
 | `import` | `{ type: 'media' \| 'audiobook', isFolder: boolean }` | Processing |
 | `importUrls` | `{ urls: string[] }` — each `http:`/`https:`, scheme-checked at the Gateway; downloads serially, one `groupId` for the batch (ADR-0027) | Download |
 | `cancelDownloads` | `{}` — kills the running child and drops the rest of the batch (ADR-0027) | Download |
+| `updateYtdlp` | `{}` — fetches the latest yt-dlp, verifies it, writes `ytdlpPath`. Only a press starts it (ADR-0056) | Download |
 | `updateItem` | `{ itemId, title }` — **title only**; `author` is written by the app, never by the user | Processing |
 | `process` | `{ itemIds: Id[] }` | Processing |
 | `cancelProcessing` | `{ itemIds: Id[] }` | Processing |
@@ -396,6 +397,20 @@ item title, never used as a filename.
 **It does not go through the Job Queue.** Downloads are serial, on the transfer precedent
 (ADR-0004); `N` remains the count of ffmpeg children and the app's only concurrency knob.
 
+### The Update Adapter — a current yt-dlp (ADR-0056)
+
+```ts
+fetchLatestYtdlp(): Promise<{ binPath: string, version: string }>
+```
+
+The only fetch in the app that is not a spawned child. **Its output is a value for
+`ytdlpPath`** — that is the whole design: it automates the setting ADR-0055 built rather than
+adding a second answer to *which yt-dlp*.
+
+Order is contract. Stream to `<asset>.part` while hashing, compare against the release's
+`SHA2-256SUMS`, and **only then** rename and `chmod +x`. The rename is the confirmation point,
+as it is on the device (ADR-0010), and a failed hash deletes the file and changes nothing.
+
 ---
 
 ## 7. Settings — nine keys
@@ -459,6 +474,8 @@ userData/library/    the managed library — produced mp3s ONLY; a file-imported
 userData/sources/    one directory per download — a fetched source has no path to
                      be read in place, so it lives here (ADR-0027). Deleted by
                      DIRECTORY, which is what catches yt-dlp's fragment (ADR-0003)
+userData/bin/        a yt-dlp the user asked us to fetch. NEVER resources/bin —
+                     writing into the bundle breaks the macOS signature (ADR-0056)
 userData/app.db      SQLite — items, outputs, settings
 userData/logs/       rotated files; written by main only; never crosses IPC
 resources/bin/       ffmpeg, ffprobe, yt-dlp — outside the asar via Forge extraResource
@@ -480,9 +497,10 @@ one is **derived** — is `sourcePath` under it — never stored, so no column a
 `deleteItems` removes it; `revertItems` does not, because a reverted item is `imported` again
 and still needs its source.
 
-**The app makes exactly one kind of network request, from exactly one place: the Download
-Adapter, spawning yt-dlp against a URL the user typed** (ADR-0027, retiring ADR-0014's
-zero-network invariant). Everywhere else the old rule stands and is worth stating as a rule
+**The app makes network requests from exactly two places, and neither runs unless the user
+pressed something**: the Download Adapter spawning yt-dlp against a URL the user typed
+(ADR-0027, retiring ADR-0014's zero-network invariant), and the Update Adapter fetching a
+current yt-dlp from a fixed URL (ADR-0056). Everywhere else the old rule stands and is worth stating as a rule
 rather than a habit: no `fetch`, no `https`, no socket, no updater, no telemetry, no
 release-check. The renderer is unchanged — `connect-src 'none'`, no remote content, two verbs
 over a whitelist. The bundled ffmpeg is still built `--disable-network`, so the *byte* path
