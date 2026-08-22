@@ -5,6 +5,8 @@ export const INTENT_CHANNELS = [
     // The second way in: bytes first, row after, then the ordinary pipeline. (ADR-0027)
     'importUrls',
     'cancelDownloads',
+    // Only a press starts it; the app never checks its own version. (ADR-0056)
+    'updateYtdlp',
     'updateItem',
     'process',
     'cancelProcessing',

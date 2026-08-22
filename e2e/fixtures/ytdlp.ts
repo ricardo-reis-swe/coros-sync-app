@@ -19,6 +19,8 @@ export const fakeYtdlp = async (options: {
     leaveFragment?: boolean;
     /** Exits 0 having written nothing, which the adapter must refuse to call a success. */
     empty?: boolean;
+    /** Stays alive, so a test can act while `isDownloading()` is still true. */
+    holdMs?: number;
 }): Promise<string> => {
     const dir = await mkdtemp(path.join(tmpdir(), 'coros-ytdlp-'));
     const bin = path.join(dir, 'yt-dlp');
@@ -30,27 +32,31 @@ const argv = process.argv.slice(2);
 
 const after = (flag) => { const i = argv.indexOf(flag); return i === -1 ? null : argv[i + 1]; };
 
-const template = after('-o');
-const destDir = path.dirname(template);
+const destDir = path.dirname(after('-o'));
 const printIndex = argv.indexOf('--print-to-file');
 const titleFile = printIndex === -1 ? null : argv[printIndex + 2];
 const url = argv[argv.length - 1];
 // The title yt-dlp would have extracted: the last path segment, so a test can assert it.
 const title = decodeURIComponent(url.split('/').filter(Boolean).pop() || 'untitled');
 
-if (titleFile) fs.writeFileSync(titleFile, title + '\\n');
+const finish = () => {
+    if (titleFile) fs.writeFileSync(titleFile, title + '\\n');
 
-if (${Boolean(options.leaveFragment)}) {
-    fs.writeFileSync(path.join(destDir, 'source.mp3.part'), 'half a download');
-}
-if (${Boolean(options.fail)} || ${Boolean(options.leaveFragment)}) {
-    process.stderr.write('ERROR: unable to extract player response\\n');
-    process.exit(1);
-}
-if (!${Boolean(options.empty)}) {
-    fs.copyFileSync(${JSON.stringify(options.source ?? '')}, path.join(destDir, 'source.mp3'));
-}
-process.exit(0);
+    if (${Boolean(options.leaveFragment)}) {
+        fs.writeFileSync(path.join(destDir, 'source.mp3.part'), 'half a download');
+    }
+    if (${Boolean(options.fail)} || ${Boolean(options.leaveFragment)}) {
+        process.stderr.write('ERROR: unable to extract player response\\n');
+        process.exit(1);
+    }
+    if (!${Boolean(options.empty)}) {
+        fs.copyFileSync(${JSON.stringify(options.source ?? '')}, path.join(destDir, 'source.mp3'));
+    }
+    process.exit(0);
+};
+
+// Held open so the test can press something while this child is still alive.
+setTimeout(finish, ${Number(options.holdMs ?? 0)});
 `;
 
     await writeFile(bin, script);

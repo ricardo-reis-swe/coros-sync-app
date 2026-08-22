@@ -251,6 +251,7 @@ const App = () => {
                     onClose={() => setSettingsOpen(false)}
                     onPatch={patchSettings}
                     onChooseFolder={() => void invoke('selectDeviceFolder')}
+                    onUpdateYtdlp={() => void invoke('updateYtdlp')}
                 />
             )}
 

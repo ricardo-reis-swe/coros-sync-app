@@ -7,6 +7,7 @@ type SettingsModalProps = {
     onClose: () => void;
     onPatch: (patch: IpcUpdateSettingsPayload) => void;
     onChooseFolder: () => void;
+    onUpdateYtdlp: () => void;
 };
 
 type NumberKey = 'bitrateMedia' | 'bitrateAudiobook' | 'splitEveryMin' | 'concurrency';
@@ -94,10 +95,22 @@ const NumberField = ({
 );
 
 // The draft is seeded once, on open: a snapshot arriving mid-edit must not overwrite typing.
-const SettingsModal = ({ settings, onClose, onPatch, onChooseFolder }: SettingsModalProps) => {
+const SettingsModal = ({
+    settings,
+    onClose,
+    onPatch,
+    onChooseFolder,
+    onUpdateYtdlp,
+}: SettingsModalProps) => {
     const [draft, setDraft] = useState<Draft>(() => draftFrom(settings));
 
     const set = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
+
+    // The one key the app writes for itself. Seeded-once protects TYPING from a snapshot; it must
+    // not protect a stale blank from this modal's own button, or Save would clear it. (ADR-0056)
+    useEffect(() => {
+        set({ ytdlpPath: settings.ytdlpPath ?? '' });
+    }, [settings.ytdlpPath]);
 
     const invalid = NUMBER_KEYS.some((key) => draft[key] !== null && parse(draft[key] as string) === null);
     const patch = patchFrom(draft, settings);
@@ -205,6 +218,14 @@ const SettingsModal = ({ settings, onClose, onPatch, onChooseFolder }: SettingsM
                         Reset
                     </button>
                 </label>
+                {/* The path is the setting; this is the way to fill it that needs no terminal. (ADR-0056) */}
+                <p className="field-note">
+                    <button onClick={onUpdateYtdlp}>Update yt-dlp</button>
+                    <span>
+                        Sites change and the bundled copy goes stale — if a URL import starts
+                        failing, this fetches a current one and points the field above at it.
+                    </span>
+                </p>
                 {/* The folder is picked in a native dialog and rescanned there — it is not part of the draft. */}
                 <label className="field">
                     <span className="field-label">Watch Music folder</span>

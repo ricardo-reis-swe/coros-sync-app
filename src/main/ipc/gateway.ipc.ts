@@ -23,7 +23,7 @@ import {
     selectDeviceFolder,
     sync,
 } from '../coordinators/sync.coordinator';
-import { cancelDownloads, importUrls } from '../coordinators/download.coordinator';
+import { cancelDownloads, importUrls, updateYtdlp } from '../coordinators/download.coordinator';
 import { getAllOutputs, getItems, lastImportedSource } from '../adapters/db/db.queries';
 import { applySettings, effectiveSettings } from '../adapters/db/settings';
 import { randomUUID } from 'crypto';
@@ -160,6 +160,9 @@ export const registerGateway = (window: BrowserWindow) => {
 
     // Kills the child and drops the rest; the cleanup is the download's own. (ADR-0023)
     handle('cancelDownloads', () => cancelDownloads());
+
+    // Detached: a 40 MB fetch never holds the invoke open. (ADR-0011)
+    handle('updateYtdlp', () => detach('Updating yt-dlp', updateYtdlp()));
 
     handle('updateItem', (payload) => {
         const { itemId, ...fields } = validateUpdateItem(payload);

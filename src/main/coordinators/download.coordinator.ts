@@ -8,7 +8,9 @@ import {
     isManagedSource,
     sourcesRoot,
 } from '../adapters/download/SourceStore';
+import { fetchLatestYtdlp } from '../adapters/download/update.adapter';
 import { getItems, insertItem, nextOrderIndex } from '../adapters/db/db.queries';
+import { applySettings } from '../adapters/db/settings';
 import { emitChanged, emitNotify, emitProgress } from '../events/bus';
 import { CancelledError } from '../queue/queue';
 import { log } from '../utils/logger';
@@ -20,6 +22,7 @@ let pending: Queued[] = [];
 let running: AbortController | null = null;
 let done = 0;
 let total = 0;
+let updating = false;
 
 export const isDownloading = (): boolean => running !== null || pending.length > 0;
 
@@ -105,6 +108,39 @@ const failDownload = async (
     const reason = err instanceof Error ? err.message : String(err);
     log.error(`[download] ${url} failed: ${reason}`);
     emitNotify({ level: 'error', message: `Download failed: ${reason}` });
+};
+
+/**
+ * Only a press starts it, and its only output is a value for `ytdlpPath` — it automates the
+ * setting ADR-0055 built rather than adding a second answer to "which yt-dlp". (ADR-0056)
+ */
+export const updateYtdlp = async (): Promise<void> => {
+    // Replacing the binary under a running child is the one way to make this an interesting bug.
+    if (isDownloading()) {
+        emitNotify({ level: 'error', message: 'A download is running — wait for it to finish.' });
+        return;
+    }
+    // Two presses would stream into the same `.part` and hash whatever interleaved.
+    if (updating) return;
+
+    updating = true;
+    emitNotify({ level: 'info', message: 'Fetching the latest yt-dlp…' });
+
+    try {
+        const { binPath, version } = await fetchLatestYtdlp();
+
+        // The Download Coordinator owns yt-dlp, so it owns the key naming which one. (ADR-0056)
+        applySettings({ ytdlpPath: binPath });
+        emitChanged();
+        emitNotify({ level: 'info', message: `yt-dlp updated to ${version}.` });
+    } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        // ADR-0013's failed-child site, widened to a failed external operation. (ADR-0056)
+        log.error(`[update] yt-dlp update failed: ${reason}`);
+        emitNotify({ level: 'error', message: `Could not update yt-dlp: ${reason}` });
+    } finally {
+        updating = false;
+    }
 };
 
 /** A crash leaves a whole directory behind. Startup reconciliation, widened — not a fifth log site. (ADR-0013) */

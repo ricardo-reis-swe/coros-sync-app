@@ -131,3 +131,32 @@ test('a list imports as one group, and deleting takes the source with it', async
     await expect(row(library(page), 'Two')).toBeHidden();
     expect(await sourceDirs(userData)).toHaveLength(2);
 });
+
+/**
+ * The updater's network path cannot be tested here — the suite must not reach the network, which
+ * is the property `ytdlpPath` exists to preserve. What IS testable offline is the guard, and it is
+ * the one that matters: replacing the binary under a running child is how you get a half-swapped
+ * yt-dlp mid-download. (ADR-0056)
+ */
+test('yt-dlp cannot be replaced while a download is running', async ({ harness }) => {
+    const { page, userData } = harness;
+    const source = await musicFile('url-import', 4);
+
+    await setSettings(page, { ytdlpPath: await fakeYtdlp({ source, holdMs: 5000 }) });
+    await importUrls(page, ['https://example.test/watch/Held']);
+
+    // While the child is still alive, the updater must refuse rather than swap the binary.
+    await page.evaluate(() =>
+        (window as unknown as { api: { invoke(c: string, p: unknown): Promise<unknown> } }).api.invoke(
+            'updateYtdlp',
+            {},
+        ),
+    );
+
+    await expect(toasts(page)).toContainText('A download is running');
+    // Refused, not merely deferred: nothing was fetched and no bin/ directory exists.
+    expect(await readdir(path.join(userData, 'bin')).catch(() => [])).toHaveLength(0);
+
+    // And the held download still lands, so the refusal cost the user nothing.
+    await expect(row(library(page), 'Held')).toBeVisible({ timeout: 30_000 });
+});

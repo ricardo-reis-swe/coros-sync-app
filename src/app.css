@@ -643,6 +643,20 @@ input.row-label {
     padding: 0.2rem 0;
 }
 
+/* A control with its reason beside it: the button is useless without knowing when to press it. */
+.field-note {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin: 0.2rem 0 0.4rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.field-note button {
+    flex: none;
+}
+
 .field-unit {
     color: var(--muted);
 }
