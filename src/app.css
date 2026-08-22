@@ -428,6 +428,29 @@ body.resizing .row:hover {
     opacity: 0.85;
 }
 
+/* Column 1's transient session: there is no row yet to hang a counter on. (ADR-0027) */
+.download-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+}
+
+.url-input {
+    width: 100%;
+    font: inherit;
+    resize: vertical;
+}
+
+.url-bad {
+    margin: 0.5rem 0 0;
+    color: var(--warn);
+    font-size: 0.85rem;
+}
+
 .cell-foot {
     display: flex;
     justify-content: space-between;

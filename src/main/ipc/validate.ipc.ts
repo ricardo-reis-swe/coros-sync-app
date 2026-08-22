@@ -50,6 +50,28 @@ export const validateImport = (payload: unknown): { type: ItemType; isFolder: bo
     return { type: fields.type as ItemType, isFolder: fields.isFolder };
 };
 
+/** Scheme first: a URL is not a path, and `file:`/`data:` are how it would become one. (ADR-0027) */
+export const validateImportUrls = (payload: unknown): string[] => {
+    const value = record('importUrls', payload).urls;
+
+    if (!Array.isArray(value) || value.some((url) => typeof url !== 'string')) {
+        return invalid('importUrls', 'urls must be an array of strings');
+    }
+
+    const urls = (value as string[]).map((url) => url.trim()).filter((url) => url !== '');
+    if (urls.length === 0) return invalid('importUrls', 'urls is empty');
+
+    for (const url of urls) {
+        const parsed = URL.parse(url);
+        if (!parsed) return invalid('importUrls', `not a URL: ${url}`);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return invalid('importUrls', `only http and https are accepted: ${url}`);
+        }
+    }
+
+    return urls;
+};
+
 export const validateItemIds = (channel: string, payload: unknown): string[] => {
     const itemIds = ids(channel, payload, 'itemIds');
 
@@ -168,6 +190,14 @@ export const validateUpdateSettings = (
         if (value === null) patch.logLevel = null;
         else if (LOG_LEVELS.includes(value as LogLevel)) patch.logLevel = value as string;
         else return invalid('updateSettings', `logLevel must be one of ${LOG_LEVELS.join(', ')}`);
+    }
+
+    // Typed, not picked: one field almost nobody sets does not earn a native dialog. (ADR-0055)
+    if ('ytdlpPath' in fields) {
+        const value = fields.ytdlpPath;
+        if (value === null) patch.ytdlpPath = null;
+        else if (typeof value === 'string' && value.trim()) patch.ytdlpPath = value.trim();
+        else return invalid('updateSettings', 'ytdlpPath must be a non-empty path, or null');
     }
 
     // The picker writes it (ADR-0016); accepting it here is only how the user clears it.

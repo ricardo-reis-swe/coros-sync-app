@@ -50,6 +50,14 @@ jobs:
           unzip -o -d resources/bin ffmpeg-linux-x64.zip && rm ffmpeg-linux-x64.zip
           chmod +x resources/bin/ffmpeg resources/bin/ffprobe
 
+      # yt-dlp ships prebuilt, so this is a fetch and not a build. (ADR-0055)
+      - name: Fetch yt-dlp
+        run: |
+          version="$(tr -d '[:space:]' < resources/ytdlp-version.txt)"
+          curl -fsSL -o resources/bin/yt-dlp \
+            "https://github.com/yt-dlp/yt-dlp/releases/download/$version/yt-dlp_linux"
+          chmod +x resources/bin/yt-dlp
+
       - run: npm run verify:bin
 
       - run: npm run lint

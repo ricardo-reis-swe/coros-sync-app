@@ -100,6 +100,35 @@ Universal binaries are not needed: ship an arm64 build and an x86_64 build, and 
 per-arch packaging pick. **Packaged macOS spawn is still untested** (DECISIONS §4) — Spike B
 covered Linux x64 only, and Gatekeeper, quarantine and notarisation are unproven here.
 
+---
+
+## yt-dlp — the third binary, and the odd one out
+
+`resources/bin/yt-dlp` (`yt-dlp.exe` on Windows) is fetched, not built. It ships prebuilt and
+standalone — no Python on the user's machine — so there is no recipe here, only a pin:
+
+```
+resources/ytdlp-version.txt      one line, e.g. 2026.07.04
+```
+
+The three `build-*` workflows curl the matching asset from yt-dlp's own releases:
+`yt-dlp_linux`, `yt-dlp_macos` (universal2 — one file covers both mac arches), `yt-dlp.exe`.
+`verify:bin` only asks whether it runs and whether it matches the pin.
+
+**It gets no network check, and that is the point.** For ffmpeg, a binary that cannot dial out
+is the stronger guarantee; for this one, dialling out is the job (ADR-0027, ARCHITECTURE §8.4).
+
+**The licence constrains nothing** — yt-dlp is Unlicense, and the app spawns it as a separate
+process exactly as it spawns ffmpeg (ADR-0003), so nothing propagates either way.
+
+**It rots, and the pin is not the fix.** Extractors break on the sites' schedule and this app
+ships no updater (ADR-0014), so a bundled copy goes stale between releases. The answer is the
+`ytdlpPath` setting (ADR-0055): the user points Settings at their own current yt-dlp and the
+bundled one is ignored. Bumping the pin is what "new yt-dlp" means for a *fresh install*; how
+often a release is cut to do it is an open question (`DECISIONS.md §4`).
+
+---
+
 ## Shipping
 
 Keep, per release: the ffmpeg version, the exact `configure` line above, `COPYING.LGPLv2.1`

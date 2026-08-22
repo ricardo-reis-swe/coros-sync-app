@@ -14,6 +14,8 @@ export const SETTINGS = [
     // Which of an output's two names is written to the watch, per type. (ADR-0040)
     'renameMedia',
     'renameAudiobook',
+    // The user's own yt-dlp, when the bundled one has rotted. (ADR-0055)
+    'ytdlpPath',
 ] as const;
 export type SettingsType = (typeof SETTINGS)[number];
 
@@ -30,6 +32,7 @@ export type EffectiveSettings = {
     mountPath: string | null;
     renameMedia: boolean;
     renameAudiobook: boolean;
+    ytdlpPath: string | null;
 };
 
 export type Item = {

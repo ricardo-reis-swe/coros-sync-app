@@ -53,6 +53,13 @@ jobs:
           Expand-Archive -Path ffmpeg-win32-x64.zip -DestinationPath resources/bin -Force
           Remove-Item ffmpeg-win32-x64.zip
 
+      # yt-dlp ships prebuilt, so this is a fetch and not a build. (ADR-0055)
+      - name: Fetch yt-dlp
+        shell: pwsh
+        run: |
+          $version = (Get-Content resources/ytdlp-version.txt).Trim()
+          Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/download/$version/yt-dlp.exe" -OutFile resources/bin/yt-dlp.exe
+
       - run: npm run verify:bin
 
       - run: npm run lint

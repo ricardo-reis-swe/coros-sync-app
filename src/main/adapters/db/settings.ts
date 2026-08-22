@@ -58,6 +58,9 @@ export const logLevel = (): LogLevel => {
 
 export const mountPath = (): string | null => getSetting('mountPath') ?? null;
 
+/** Null means the bundled copy; read per fetch, never cached. (ADR-0055) */
+export const ytdlpPath = (): string | null => getSetting('ytdlpPath') ?? null;
+
 /* ---------- the snapshot's view ---------- */
 
 /** Defaults already applied: the renderer gets resolved numbers and never learns one. (ADR-0024) */
@@ -70,6 +73,7 @@ export const effectiveSettings = (): EffectiveSettings => ({
     mountPath: mountPath(),
     renameMedia: renameSetting('media'),
     renameAudiobook: renameSetting('audiobook'),
+    ytdlpPath: ytdlpPath(),
 });
 
 /** `null` clears the key — the code default takes over again. An absent key is untouched. */

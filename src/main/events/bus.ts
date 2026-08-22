@@ -4,7 +4,9 @@ export type Notification = { level: 'info' | 'error'; message: string };
 
 export type ProgressDelta =
     | { itemId: string; completed: number; expected: number }
-    | { transfer: { done: number; total: number } };
+    | { transfer: { done: number; total: number } }
+    // A third shape, not a fourth channel: confirmed downloads, `null` ends the batch. (ADR-0027)
+    | { download: { done: number; total: number } | null };
 
 const changedListeners = new Set<() => void>();
 const notifyListeners = new Set<(notification: Notification) => void>();

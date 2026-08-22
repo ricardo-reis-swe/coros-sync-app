@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, session, WebContents } from 'electron';
 import { registerGateway } from './main/ipc/gateway.ipc';
 import { reconcileOnStartup } from './main/coordinators/processing.coordinator';
+import { sweepSourcesOnStartup } from './main/coordinators/download.coordinator';
 import { openSchema } from './main/adapters/db/db';
 import { isPackaged } from './main/utils/resolvers';
 import { mkdir } from 'node:fs/promises';
@@ -74,6 +75,8 @@ const createWindow = async (): Promise<void> => {
 
     // Stranded `processing` items: same cleanup as a failed child. (docs/05 §6)
     await reconcileOnStartup();
+    // The same site, widened to the second blob: a crash leaves a whole directory. (ADR-0027)
+    await sweepSourcesOnStartup();
 
     mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
     if (!isPackaged()) mainWindow.webContents.openDevTools();

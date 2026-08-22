@@ -54,6 +54,14 @@ jobs:
           unzip -o -d resources/bin ${{ matrix.asset }}.zip && rm ${{ matrix.asset }}.zip
           chmod +x resources/bin/ffmpeg resources/bin/ffprobe
 
+      # One universal2 binary covers both matrix arches. (ADR-0055)
+      - name: Fetch yt-dlp
+        run: |
+          version="$(tr -d '[:space:]' < resources/ytdlp-version.txt)"
+          curl -fsSL -o resources/bin/yt-dlp \
+            "https://github.com/yt-dlp/yt-dlp/releases/download/$version/yt-dlp_macos"
+          chmod +x resources/bin/yt-dlp
+
       # The x64 pair cannot execute on the arm64 runner, and there is no Rosetta here.
       - name: Verify binaries
         if: matrix.native

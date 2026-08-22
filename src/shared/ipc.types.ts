@@ -2,6 +2,9 @@ import { DeviceState, EffectiveSettings, Item, ItemType, LogLevel, Output } from
 
 export const INTENT_CHANNELS = [
     'import',
+    // The second way in: bytes first, row after, then the ordinary pipeline. (ADR-0027)
+    'importUrls',
+    'cancelDownloads',
     'updateItem',
     'process',
     'cancelProcessing',
@@ -55,6 +58,11 @@ export type IpcProcessPayload = {
     itemIds: string[];
 };
 
+/** The one renderer-supplied string main opens — scheme-checked, because a URL is not a path. (ADR-0027) */
+export type IpcImportUrlsPayload = {
+    urls: string[];
+};
+
 /** `type` is carried though the ids imply it: it makes "drag never crosses a cell" checkable. */
 export type IpcReorderPayload = {
     type: ItemType;
@@ -84,6 +92,7 @@ export type IpcUpdateSettingsPayload = Partial<
 > & {
     logLevel?: LogLevel | null;
     mountPath?: string | null;
+    ytdlpPath?: string | null;
     renameMedia?: boolean | null;
     renameAudiobook?: boolean | null;
 };

@@ -4,8 +4,13 @@ import { Intent, StateSnapshot } from '../shared/ipc.types';
 export type Notification = { id: number; level: 'info' | 'error'; message: string };
 export type ItemProgress = { completed: number; expected: number };
 type Transfer = { done: number; total: number };
+type Download = { done: number; total: number };
 
-type ProgressDelta = ({ itemId: string } & ItemProgress) | { transfer: Transfer };
+type ProgressDelta =
+    | ({ itemId: string } & ItemProgress)
+    | { transfer: Transfer }
+    // A third shape on the same channel; a fourth channel is forbidden. (ADR-0013)
+    | { download: Download | null };
 
 const TOAST_MS = 6000;
 const ERROR_MAX = 3;
@@ -35,6 +40,7 @@ export const useMirror = () => {
     const [snapshot, setSnapshot] = useState<StateSnapshot | null>(null);
     const [progress, setProgress] = useState<Record<string, ItemProgress>>({});
     const [transfer, setTransfer] = useState<Transfer | null>(null);
+    const [download, setDownload] = useState<Download | null>(null);
     const [toasts, setToasts] = useState<Notification[]>([]);
     const nextToastId = useRef(0);
 
@@ -55,6 +61,7 @@ export const useMirror = () => {
             window.api.subscribe('progress:delta', (payload) => {
                 const delta = payload as ProgressDelta;
                 if ('transfer' in delta) setTransfer(delta.transfer);
+                else if ('download' in delta) setDownload(delta.download);
                 else setProgress((all) => ({ ...all, [delta.itemId]: delta }));
             }),
             window.api.subscribe('notify', (payload) => {
@@ -91,5 +98,5 @@ export const useMirror = () => {
         if (snapshot && !snapshot.device.syncing) setTransfer(null);
     }, [snapshot?.device.syncing]);
 
-    return { snapshot, progress, transfer, toasts, dismiss };
+    return { snapshot, progress, transfer, download, toasts, dismiss };
 };

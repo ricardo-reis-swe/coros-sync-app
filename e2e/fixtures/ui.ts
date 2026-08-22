@@ -79,6 +79,19 @@ export const importAudiobook = async (harness: Harness, sourcePaths: string[]): 
     await harness.page.getByRole('button', { name: 'Import Audiobook', exact: true }).click();
 };
 
+/** The third split button. Exact, or it also matches the dropdown titled "Import URL — list". */
+export const importUrls = async (page: Page, urls: string[]): Promise<void> => {
+    if (urls.length === 1) {
+        await page.getByRole('button', { name: 'Import URL', exact: true }).click();
+    } else {
+        await page.getByRole('button', { name: 'Import URL — list' }).click();
+        await page.getByRole('menuitem', { name: 'Import URLs list…' }).click();
+    }
+
+    await page.locator('.url-input').fill(urls.join('\n'));
+    await page.locator('.modal').getByRole('button', { name: /^Import/ }).click();
+};
+
 /** One picker, in the header: no empty state carries a copy of it. (ADR-0045) */
 export const chooseDevice = async (harness: Harness): Promise<void> => {
     await harness.queueDialog([harness.device]);

@@ -1,4 +1,4 @@
-import { Info } from 'lucide-react';
+import { Info, X } from 'lucide-react';
 import { useState } from 'react';
 import { EffectiveSettings, Item, ItemType, Output } from '../shared/data.types';
 import Cell, { RowPlan } from './Cell';
@@ -9,9 +9,11 @@ type LibraryColumnProps = {
     outputs: Output[];
     settings: EffectiveSettings | null;
     progress: Record<string, ItemProgress>;
+    download: { done: number; total: number } | null;
     selected: Set<string>;
     libraryEmpty: boolean;
     onSelect: (itemIds: string[], checked: boolean) => void;
+    onCancelDownloads: () => void;
     onProcess: () => void;
     onCancel: (itemIds: string[]) => void;
     onDelete: (itemIds: string[]) => void;
@@ -38,9 +40,11 @@ const LibraryColumn = ({
     outputs,
     settings,
     progress,
+    download,
     selected,
     libraryEmpty,
     onSelect,
+    onCancelDownloads,
     onProcess,
     onCancel,
     onDelete,
@@ -88,7 +92,10 @@ const LibraryColumn = ({
     return (
         <div
             className="column"
-            style={{ gridTemplateRows: `auto ${track('media')} ${track('audiobook')}` }}
+            // The strip is a row of its own, or the two cells lose their track. (ARCHITECTURE §10.4)
+            style={{
+                gridTemplateRows: `auto ${download ? 'auto ' : ''}${track('media')} ${track('audiobook')}`,
+            }}
         >
             <header className="column-head">
                 <h2 className="column-title">Library</h2>
@@ -102,6 +109,17 @@ const LibraryColumn = ({
                     <Info className="info-mark" size={13} />
                 </span>
             </header>
+            {/* No row to hang a counter on: the bytes precede the row, so the session is it. (ADR-0027) */}
+            {download && (
+                <div className="download-strip">
+                    <span>
+                        downloading {download.done}/{download.total}
+                    </span>
+                    <button className="row-icon" title="Stop downloading" onClick={onCancelDownloads}>
+                        <X size={14} />
+                    </button>
+                </div>
+            )}
             <Cell
                 title="Media"
                 type="media"

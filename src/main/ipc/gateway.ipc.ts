@@ -23,6 +23,7 @@ import {
     selectDeviceFolder,
     sync,
 } from '../coordinators/sync.coordinator';
+import { cancelDownloads, importUrls } from '../coordinators/download.coordinator';
 import { getAllOutputs, getItems, lastImportedSource } from '../adapters/db/db.queries';
 import { applySettings, effectiveSettings } from '../adapters/db/settings';
 import { randomUUID } from 'crypto';
@@ -31,6 +32,7 @@ import { logsDir, readLogTail } from '../utils/logger';
 import {
     validateFilenames,
     validateImport,
+    validateImportUrls,
     validateItemIds,
     validateReorder,
     validateSync,
@@ -150,6 +152,14 @@ export const registerGateway = (window: BrowserWindow) => {
 
         // No snapshot here: `processImport` emits, like every other lifecycle change. (ADR-0039)
     };
+
+    // Detached: a download is as long-running as a transfer, and the Ack is not its outcome. (ADR-0027)
+    handle('importUrls', (payload) => {
+        detach('Import', importUrls(validateImportUrls(payload)));
+    });
+
+    // Kills the child and drops the rest; the cleanup is the download's own. (ADR-0023)
+    handle('cancelDownloads', () => cancelDownloads());
 
     handle('updateItem', (payload) => {
         const { itemId, ...fields } = validateUpdateItem(payload);

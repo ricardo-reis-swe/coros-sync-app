@@ -19,6 +19,7 @@ import { ProbeResult, TranscodeTask } from '../adapters/engine/engine.types';
 import { probe } from '../adapters/engine/probe.engine';
 import { transcode } from '../adapters/engine/transcode.engine';
 import { allocateOutputPath, deleteItemOutputs } from '../adapters/library/LibraryStore';
+import { deleteSourceDir, isManagedSource } from '../adapters/download/SourceStore';
 import { isSyncing } from './sync.coordinator';
 import { emitChanged, emitNotify, emitProgress } from '../events/bus';
 import { pool } from '../queue/pool';
@@ -113,6 +114,8 @@ export const deleteItems = async (itemIds: string[]): Promise<void> => {
 
         await deleteItemOutputs(item.id);
         deleteOutputsByItemId(item.id);
+        // A fetched source is ours, so it goes with the row. `revertItems` must not — it still needs it.
+        if (isManagedSource(item.sourcePath)) await deleteSourceDir(path.dirname(item.sourcePath));
         deleteItem(item.id);
     }
 

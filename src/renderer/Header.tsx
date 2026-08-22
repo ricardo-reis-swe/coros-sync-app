@@ -1,9 +1,10 @@
 import { ChevronDown, EllipsisVertical, Settings } from 'lucide-react';
 import { ItemType } from '../shared/data.types';
-import Menu from './Menu';
+import Menu, { MenuItem } from './Menu';
 
 type HeaderProps = {
     onImport: (type: ItemType, isFolder: boolean) => void;
+    onImportUrls: (multi: boolean) => void;
     onChooseDevice: () => void;
     onOpenSettings: () => void;
     onOpenLogFolder: () => void;
@@ -11,34 +12,36 @@ type HeaderProps = {
     onOpenAppData: () => void;
 };
 
-/** The default action is files; the arrow is where the rarer folder import lives. */
-const ImportButton = ({
+/** The default action is the common one; the arrow is where the rarer sibling lives. */
+const SplitButton = ({
     label,
-    type,
-    onImport,
+    title,
+    onMain,
+    items,
 }: {
     label: string;
-    type: ItemType;
-    onImport: HeaderProps['onImport'];
+    title: string;
+    onMain: () => void;
+    items: MenuItem[];
 }) => (
     <span className="split">
-        <button className="split-main" onClick={() => onImport(type, false)}>
+        <button className="split-main" onClick={onMain}>
             {label}
         </button>
         <Menu
             className="split-menu"
             buttonClassName="split-trigger"
-            title={`${label} — folder`}
+            title={title}
             align="left"
             trigger={<ChevronDown className="chevron" size={12} strokeWidth={2.5} />}
-            // Files is the button itself; repeating it here would be a menu of one real choice.
-            items={[{ label: 'Choose a folder…', onSelect: () => onImport(type, true) }]}
+            items={items}
         />
     </span>
 );
 
 const Header = ({
     onImport,
+    onImportUrls,
     onChooseDevice,
     onOpenSettings,
     onOpenLogFolder,
@@ -47,8 +50,26 @@ const Header = ({
 }: HeaderProps) => (
     <header className="app-header">
         <span className="header-left">
-            <ImportButton label="Import Media" type="media" onImport={onImport} />
-            <ImportButton label="Import Audiobook" type="audiobook" onImport={onImport} />
+            <SplitButton
+                label="Import Media"
+                title="Import Media — folder"
+                onMain={() => onImport('media', false)}
+                // Files is the button itself; repeating it here would be a menu of one real choice.
+                items={[{ label: 'Choose a folder…', onSelect: () => onImport('media', true) }]}
+            />
+            <SplitButton
+                label="Import Audiobook"
+                title="Import Audiobook — folder"
+                onMain={() => onImport('audiobook', false)}
+                items={[{ label: 'Choose a folder…', onSelect: () => onImport('audiobook', true) }]}
+            />
+            {/* Lands in the library as `media` like any other import; the mp3 is Process's. (ADR-0027) */}
+            <SplitButton
+                label="Import URL"
+                title="Import URL — list"
+                onMain={() => onImportUrls(false)}
+                items={[{ label: 'Import URLs list…', onSelect: () => onImportUrls(true) }]}
+            />
         </span>
 
         <h1 className="header-title">Coros Sync</h1>

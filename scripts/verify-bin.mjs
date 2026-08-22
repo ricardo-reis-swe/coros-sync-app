@@ -2,7 +2,7 @@
 /** `npm run verify:bin` — checks resources/bin is static and can actually encode mp3. Downloads nothing. */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, statSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, statSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -10,6 +10,7 @@ const BIN_DIR = path.join(process.cwd(), 'resources', 'bin');
 const EXE = process.platform === 'win32' ? '.exe' : '';
 const ffmpeg = path.join(BIN_DIR, `ffmpeg${EXE}`);
 const ffprobe = path.join(BIN_DIR, `ffprobe${EXE}`);
+const ytdlp = path.join(BIN_DIR, `yt-dlp${EXE}`);
 
 const results = [];
 const record = (name, ok, detail) => results.push({ name, ok, detail });
@@ -21,7 +22,7 @@ const run = (bin, args) =>
 
 /* ---------- (0) present and executable ---------- */
 
-for (const bin of [ffmpeg, ffprobe]) {
+for (const bin of [ffmpeg, ffprobe, ytdlp]) {
     const name = `${path.basename(bin)} present`;
 
     if (!existsSync(bin)) {
@@ -148,6 +149,22 @@ try {
     record('sine → mp3 → probe', false, (err.stderr || err.message).toString().trim().split('\n').pop());
 } finally {
     rmSync(scratch, { recursive: true, force: true });
+}
+
+/* ---------- (e) yt-dlp runs, and matches the pin ---------- */
+
+// No network check here: for ffmpeg a binary that cannot dial out is stronger, for this one it is the job.
+try {
+    const version = run(ytdlp, ['--version']).trim();
+    const pinned = readFileSync(path.join(process.cwd(), 'resources', 'ytdlp-version.txt'), 'utf8').trim();
+
+    record('yt-dlp runs', /^\d{4}\.\d{2}\.\d{2}/.test(version), version || 'no version printed');
+
+    // A drifted pin is shippable; it only means CI would fetch a different binary than this one. (DECISIONS §4)
+    if (version !== pinned) warn('yt-dlp pin', `binary is ${version}, ytdlp-version.txt says ${pinned}`);
+    else record('yt-dlp pin', true, pinned);
+} catch (err) {
+    record('yt-dlp runs', false, (err.stderr || err.message).toString().trim().split('\n').pop());
 }
 
 report();

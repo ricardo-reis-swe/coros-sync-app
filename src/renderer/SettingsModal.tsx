@@ -15,7 +15,7 @@ type NumberKey = 'bitrateMedia' | 'bitrateAudiobook' | 'splitEveryMin' | 'concur
 type BooleanKey = 'renameMedia' | 'renameAudiobook';
 
 type Draft = Record<NumberKey, string | null> &
-    Record<BooleanKey, boolean> & { logLevel: LogLevel | null };
+    Record<BooleanKey, boolean> & { logLevel: LogLevel | null; ytdlpPath: string };
 
 const draftFrom = (settings: EffectiveSettings): Draft => ({
     bitrateMedia: String(settings.bitrateMedia),
@@ -25,6 +25,8 @@ const draftFrom = (settings: EffectiveSettings): Draft => ({
     logLevel: settings.logLevel,
     renameMedia: settings.renameMedia,
     renameAudiobook: settings.renameAudiobook,
+    // '' is both "unset" and "clear it": a path setting has no third state. (ADR-0055)
+    ytdlpPath: settings.ytdlpPath ?? '',
 });
 
 const parse = (raw: string): number | null => {
@@ -56,6 +58,9 @@ const patchFrom = (draft: Draft, settings: EffectiveSettings): IpcUpdateSettings
     for (const key of BOOLEAN_KEYS) {
         if (draft[key] !== settings[key]) patch[key] = draft[key];
     }
+
+    const ytdlpPath = draft.ytdlpPath.trim();
+    if (ytdlpPath !== (settings.ytdlpPath ?? '')) patch.ytdlpPath = ytdlpPath || null;
 
     return patch;
 };
@@ -185,6 +190,20 @@ const SettingsModal = ({ settings, onClose, onPatch, onChooseFolder }: SettingsM
                         onChange={(event) => set({ renameMedia: event.target.checked })}
                     />
                     <span className="field-unit">artist prefix</span>
+                </label>
+                {/* Typed, not picked: a native dialog for the one field almost nobody sets. (ADR-0055) */}
+                <label className="field">
+                    <span className="field-label">yt-dlp binary</span>
+                    <input
+                        className="field-path"
+                        placeholder="the bundled copy"
+                        value={draft.ytdlpPath ?? ''}
+                        onChange={(event) => set({ ytdlpPath: event.target.value })}
+                    />
+                    <span className="field-unit">blank uses the one we shipped</span>
+                    <button disabled={!draft.ytdlpPath} onClick={() => set({ ytdlpPath: '' })}>
+                        Reset
+                    </button>
                 </label>
                 {/* The folder is picked in a native dialog and rescanned there — it is not part of the draft. */}
                 <label className="field">

@@ -7,6 +7,7 @@ import LibraryColumn from './LibraryColumn';
 import NotifyStrip from './NotifyStrip';
 import ProcessedColumn from './ProcessedColumn';
 import SettingsModal from './SettingsModal';
+import UrlImportModal from './UrlImportModal';
 import {
     isPicked,
     isStaged,
@@ -21,7 +22,7 @@ import { useColumnWidths } from './useColumnWidths';
 import { invoke, useMirror } from './useMirror';
 
 const App = () => {
-    const { snapshot, progress, transfer, toasts, dismiss } = useMirror();
+    const { snapshot, progress, transfer, download, toasts, dismiss } = useMirror();
     const { grid, template, startDrag } = useColumnWidths();
 
     // One set per column that picks, and column 3 does not: a tick acts where it was made. (ADR-0051)
@@ -31,6 +32,8 @@ const App = () => {
     const [sendList, setSendList] = useState<Set<string>>(new Set());
     const [mode, setMode] = useState<SyncMode>('append-new');
     const [settingsOpen, setSettingsOpen] = useState(false);
+    // `false` is closed; the boolean is which field the one modal shows.
+    const [urlImport, setUrlImport] = useState<false | { multi: boolean }>(false);
 
     const items = snapshot?.items ?? [];
     const outputs = snapshot?.outputs ?? [];
@@ -169,6 +172,7 @@ const App = () => {
         <div className="app">
             <Header
                 onImport={(type, isFolder) => void invoke('import', { type, isFolder })}
+                onImportUrls={(multi) => setUrlImport({ multi })}
                 onChooseDevice={() => void invoke('selectDeviceFolder')}
                 onOpenSettings={() => setSettingsOpen(true)}
                 onOpenLogFolder={() => void invoke('openLogFolder')}
@@ -182,8 +186,10 @@ const App = () => {
                     outputs={outputs}
                     settings={snapshot?.settings ?? null}
                     progress={progress}
+                    download={download}
                     selected={libraryTicks}
                     libraryEmpty={items.length === 0}
+                    onCancelDownloads={() => void invoke('cancelDownloads')}
                     onSelect={ticker(setLibraryTicks)}
                     // The ticks stay: the rows leave `imported`, so the button goes dead. (ADR-0051)
                     onProcess={() =>
@@ -245,6 +251,14 @@ const App = () => {
                     onClose={() => setSettingsOpen(false)}
                     onPatch={patchSettings}
                     onChooseFolder={() => void invoke('selectDeviceFolder')}
+                />
+            )}
+
+            {urlImport && (
+                <UrlImportModal
+                    multi={urlImport.multi}
+                    onClose={() => setUrlImport(false)}
+                    onImport={(urls) => void invoke('importUrls', { urls })}
                 />
             )}
 
