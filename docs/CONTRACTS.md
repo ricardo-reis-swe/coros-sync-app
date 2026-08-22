@@ -34,7 +34,9 @@ items                        state written ONLY by the Processing Coordinator (A
   id             PK
   groupId        string   generated at import; NOT a table
   groupName      string   folder name — display only
-  sourcePath     string   the user's original — read in place, never mutated (ADR-0020)
+  sourcePath     string   never mutated. A file import: the user's original, read in
+                          place (ADR-0020). A URL import: ours, under userData/sources/
+                          (ADR-0027). Nothing stores which — the prefix is the answer
   type           enum     'media' | 'audiobook'
   title          string   rewritten tag — editable
   author         string   rewritten tag — written by the app, NOT user-editable
@@ -94,10 +96,15 @@ TransferSession  { mode: 'append-new' | 'reorder-all',
                    ordered: OutputId[], cursor }                    // in the Sync Coordinator
 DeviceScan       { files: { filename, sizeBytes, mtimeMs, ino,
                             managed: boolean }[] }                  // discarded after diff
+DownloadSession  { urls: string[], done, total }                    // in the Download Coordinator
 ```
 
 `M` in "N of M" lives in `Job.expectedOutputs`, from the probe. It is **not in the
 database**. `N` is `count(confirmed outputs)` — a fact, not a parsed percentage.
+
+`DownloadSession` is the reason there is no `downloading` item state: a row may not exist
+before its bytes (ADR-0007), so the in-flight download has nowhere to live but here, and
+`done` counts finished downloads for the same reason `N` counts confirmed outputs (ADR-0027).
 
 ---
 
@@ -166,6 +173,8 @@ or refused intent look like a button that did nothing.
 | Intent | Payload | Owner |
 |---|---|---|
 | `import` | `{ type: 'media' \| 'audiobook', isFolder: boolean }` | Processing |
+| `importUrls` | `{ urls: string[] }` — each `http:`/`https:`, scheme-checked at the Gateway; downloads serially, one `groupId` for the batch (ADR-0027) | Download |
+| `cancelDownloads` | `{}` — kills the running child and drops the rest of the batch (ADR-0027) | Download |
 | `updateItem` | `{ itemId, title }` — **title only**; `author` is written by the app, never by the user | Processing |
 | `process` | `{ itemIds: Id[] }` | Processing |
 | `cancelProcessing` | `{ itemIds: Id[] }` | Processing |
@@ -194,6 +203,15 @@ which is what the two import buttons' dropdowns select — it names *which* pick
 *what was picked*, so ADR-0017's decision is unchanged. ADR-0017 also reserved a `paths?`
 field for a future drag-drop affordance; it was never built and is not in the type.
 
+`importUrls` is the one intent that carries a **renderer-supplied string main will open**, and
+it is not the thing ADR-0017 refused: a URL names a remote resource, not a filesystem path, so
+it grants the renderer no reach it did not already have. It is parsed with `new URL()` and
+rejected unless the protocol is `http:` or `https:` — `file:` and `data:` are the cases that
+would have made it a path after all. Both this and its cancel are **Download**'s, a third
+coordinator that owns exactly one column-less act: bytes into `userData/sources/`, then an
+`imported` row like any other. It **never** enters the Job Queue (ADR-0004's transfer
+precedent) and **never** produces an Output — the mp3 is `[Process]`'s to make (ADR-0027).
+
 The picker **reopens where the last import came from**, derived from the most recently inserted
 `items.sourcePath` (by `rowid`, since `orderIndex` moves with a reorder). No seventh settings key:
 the fact is already in the table, so storing it again would be the second copy that drifts
@@ -219,8 +237,13 @@ never the unit of a user's intent about the library. (ADR-0022)
 | Event | Payload | Cadence |
 |---|---|---|
 | `state:snapshot` | `{ requestId?, items, outputs, device, settings }` — `device` is `{ reach, syncing, stopping, freeBytes, files: { filename, managed }[] }`, where `reach` is `'ok' \| 'unreachable' \| 'denied'` (ADR-0028 / ADR-0045) | Every lifecycle change. Coarse, self-healing. |
-| `progress:delta` | `{ itemId, completed, expected }` \| `{ transfer: { done, total } }` | High-frequency. Never durable. |
+| `progress:delta` | `{ itemId, completed, expected }` \| `{ transfer: { done, total } }` \| `{ download: { done, total } \| null }` | High-frequency. Never durable. |
 | `notify` | `{ requestId?, level, message }` | Transient failure reasons. Never a persisted state. |
+
+**Three channels, still.** The download variant is a third *shape* on `progress:delta`, not a
+fourth channel — ADR-0013 forbids the fourth, and a download has the same nature as a transfer:
+a count of confirmed whole units, never a parsed percentage (ADR-0008). `null` ends the batch and
+clears the strip; the item rows that appear on `state:snapshot` are the durable trace.
 
 `device.files` is the last scan **in playback order** — the order is the payload's point
 (ADR-0004's premise, rendered). That order is not `readdir`'s, which carries none (macOS sorts it
@@ -347,9 +370,35 @@ shutdown *finalises* the file we are about to delete. The adapter settles on **`
 not `exit`, so the partial mp3 is unlinked only once the child has released it; there is
 no timeout, because settling early would free a pool slot with a live child. (ADR-0032)
 
+### The Download Adapter — yt-dlp (ADR-0027)
+
+A second foreign world, so a second adapter — but it shares §6's child-spawning shape, which
+is why it is documented here rather than given a section of its own.
+
+```ts
+fetchAudio(url, destDir, signal): Promise<{ filePath, title }>
+class DownloadError extends Error   // non-zero exit; the stderr tail is the reason
+```
+
+**One call, one child, one source file.** It resolves its binary as
+`ytdlpPath ?? resolveYtdlp()` (ADR-0055), reuses the Engine Adapter's `runChild` — so
+`SIGKILL`, settle-on-`close`, and the stderr tail are one implementation, not two — and
+honours the signal the same way: kill the child, delete `destDir`.
+
+Five flags are contract, not preference. **No `--extract-audio` and no `--audio-format`**:
+the download produces a *source*, and the mp3 is `[Process]`'s to make (ADR-0027 refuted the
+alternative). `-f bestaudio/best` (ADR-0055 — 0027's `bestaudio[ext=m4a]` has no fallback).
+`--ignore-config`, so a config file on the user's machine cannot add `--exec` to a child we
+spawn. `--ffmpeg-location` pinned at `resources/bin`, so it can never find another ffmpeg.
+And **`-o` is our own template** — the remote title is written to a file and read back as an
+item title, never used as a filename.
+
+**It does not go through the Job Queue.** Downloads are serial, on the transfer precedent
+(ADR-0004); `N` remains the count of ffmpeg children and the app's only concurrency knob.
+
 ---
 
-## 7. Settings — eight keys
+## 7. Settings — nine keys
 
 **Live** = read at act time by the component that acts. Effective immediately. Since ADR-0036
 there is **no seed side**: the three keys that were seeds are read when Process is pressed, not
@@ -368,6 +417,7 @@ and the row then records the source's own bitrate (ADR-0043).
 | `mountPath` | live | *(none — prompt)* | Device Adapter, per `locateMount()` |
 | `renameAudiobook` | live | `true` | Sync Coordinator, **once per session** (ADR-0040) |
 | `renameMedia` | live | `false` | Sync Coordinator, **once per session** (ADR-0040) |
+| `ytdlpPath` | live | *(none — the bundled copy)* | Download Adapter, per fetch (ADR-0055) |
 
 ```
 N = max(1, setting ?? os.cpus().length - 1)
@@ -383,24 +433,35 @@ The two `rename*` keys pick which of an output's two immutable names sync writes
 read **once at the top of a session**, never per file, so one transfer cannot be split across
 two naming schemes (ADR-0040).
 
+`ytdlpPath` is the only key whose default is **a binary we shipped** rather than a number. It
+is `mountPath`'s shape, for `mountPath`'s reason: read the value, validate it, **never detect**
+(ADR-0016). It exists because yt-dlp rots between releases and ADR-0014 ships no updater, so the
+user needs a way to replace one binary without waiting for us (ADR-0055). Absent is the normal
+case. It is emphatically **not** a `PATH` search — the app still owns its engine (ADR-0002).
+
 **The code defaults live in exactly one module** (`main/adapters/db/settings`), which is
 what makes the rule above enforceable rather than aspirational — six inline `??`s is how
 two of them end up disagreeing. The renderer receives **effective** values on
 `state:snapshot` and never learns a default (ADR-0024).
 
 **Not settings:** `type` (a per-import UI choice). The library location (fixed at
-`userData/library` — making it configurable means owning a migration).
+`userData/library` — making it configurable means owning a migration), and the sources
+location with it. Download *quality* is not one either: `bestaudio/best` is what the pipeline
+wants, and a fourth encode knob would compete with `bitrateMedia` for the same decision.
 
 ---
 
 ## 8. Fixed paths
 
 ```
-userData/library/    the managed library — produced mp3s ONLY; sources are read
-                     in place and never copied here (ADR-0020)
+userData/library/    the managed library — produced mp3s ONLY; a file-imported
+                     source is read in place and never copied here (ADR-0020)
+userData/sources/    one directory per download — a fetched source has no path to
+                     be read in place, so it lives here (ADR-0027). Deleted by
+                     DIRECTORY, which is what catches yt-dlp's fragment (ADR-0003)
 userData/app.db      SQLite — items, outputs, settings
 userData/logs/       rotated files; written by main only; never crosses IPC
-resources/bin/       ffmpeg, ffprobe — outside the asar via Forge extraResource
+resources/bin/       ffmpeg, ffprobe, yt-dlp — outside the asar via Forge extraResource
 app.asar.unpacked/   better_sqlite3.node — outside the asar via AutoUnpackNativesPlugin
 ```
 
@@ -410,6 +471,19 @@ archive.
 
 A **single binary-path resolver in main** is the only code that knows about
 `app.isPackaged`, `process.resourcesPath`, and `.exe`. Adapters ask it for a binary;
-they never construct a path.
+they never construct a path. `ytdlpPath` does not breach this: it is an absolute path the
+user supplied, so there is no bundle layout to know about — the adapter reads a setting, the
+resolver still owns every path we ship (ADR-0055).
 
-**The app makes zero network requests, in any code path.**
+`userData/sources/` is the app's **second** owned blob and its only new one. Which items have
+one is **derived** — is `sourcePath` under it — never stored, so no column and no migration.
+`deleteItems` removes it; `revertItems` does not, because a reverted item is `imported` again
+and still needs its source.
+
+**The app makes exactly one kind of network request, from exactly one place: the Download
+Adapter, spawning yt-dlp against a URL the user typed** (ADR-0027, retiring ADR-0014's
+zero-network invariant). Everywhere else the old rule stands and is worth stating as a rule
+rather than a habit: no `fetch`, no `https`, no socket, no updater, no telemetry, no
+release-check. The renderer is unchanged — `connect-src 'none'`, no remote content, two verbs
+over a whitelist. The bundled ffmpeg is still built `--disable-network`, so the *byte* path
+cannot dial out whatever it is handed. See ARCHITECTURE §8.4.

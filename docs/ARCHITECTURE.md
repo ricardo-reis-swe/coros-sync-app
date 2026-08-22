@@ -413,9 +413,32 @@ Nothing below is stored — which is exactly why the model can stay this small.
 
 Half of these are failure paths, on purpose: interruption is normal.
 
+### 7.0 Fetch → import (ADR-0027)
+
+The other way in. yt-dlp fetches the audio **as a source, not as an output** — no
+`--extract-audio`, no `--audio-format` — into `userData/sources/<downloadId>/`, and the
+file becomes an ordinary `sourcePath`. From the row's point of view nothing here happened:
+it lands `imported`, `[Process]` treats it like any other, and by the time an Output exists
+nothing downstream can tell where the bytes came from.
+
+Three shapes are borrowed rather than invented. **Serial, outside the Job Queue** — the
+transfer precedent (ADR-0004), because `N` counts ffmpeg children and a download is not
+one. **The row is written after the child exits 0** (ADR-0007), so there is no
+`downloading` state and no row ahead of its bytes; the progress is a transient session on
+`progress:delta`, a count of confirmed downloads out of the batch, never a parsed
+percentage (ADR-0008). **Failure is §7.2 with a smaller blast radius**: delete the
+download's directory, no row, `notify` — and on a cancel, the same cleanup with no notify
+and no log line (ADR-0023).
+
+Deleting by *directory* is the same trap as §7.2's, in a second blob: a killed yt-dlp
+leaves a `.part` or `.ytdl` fragment that no row knows about, and only
+`rm -r <downloadId>/` catches it. A crash leaves the whole directory, which startup
+reconciliation sweeps — the same site, widened, not a fifth one (ADR-0013).
+
 ### 7.1 Import → probe → process
 
-Import inserts a row and copies nothing (ADR-0020). On `process`, the item flips to
+Import inserts a row and copies nothing (ADR-0020) — **except a URL import, which has no
+path to read in place and brings its own bytes; see §7.0**. On `process`, the item flips to
 `processing` **before** the probe, so a crash during the probe strands it exactly as a
 crash during a transcode does — startup reconciliation needs **one** rule, not two.
 
@@ -656,18 +679,41 @@ revealed location is its own named, main-resolved intent; **a general `openPath(
 was refused**, so the renderer can open exactly the folders main chooses to expose and
 no others. A filesystem path must never cross IPC as a renderer-supplied value.
 
-### 8.4 Why there is no security chapter
+### 8.4 The one network path
 
-The renderer sandbox is stated where it is enforced: context isolation on, no
-`nodeIntegration`, and a preload surface of **exactly two verbs over a fixed channel
-whitelist** — no `fs`, no `path`, no `ipcRenderer`, no Node in the renderer. For a fully
-offline, single-user app that renders no remote content and makes **zero network
-requests in any code path**, a threat-model chapter on top of those flags would be
-ceremony, not architecture.
+This section used to argue that a threat-model chapter was ceremony, because the app made
+**zero network requests in any code path**. ADR-0027 spent that argument. The chapter it
+promised is this one, and it is short for a reason worth stating: **what changed is one
+process, not the model.** The renderer is exactly as sealed as it was.
 
-**This cut is load-bearing, not lazy.** ADR-0014 leans on it, and the deferred YouTube
-import is blocked by it: the day the app makes its first network call, this argument
-stops holding and the chapter has to be written.
+**Unchanged, and now carrying the whole argument.** Context isolation on, no
+`nodeIntegration`, a preload surface of **exactly two verbs over a fixed channel
+whitelist** — no `fs`, no `path`, no `ipcRenderer`, no Node. `connect-src 'none'`,
+`object-src 'none'`, `form-action 'none'`; `setWindowOpenHandler` denies, `will-navigate`
+denies anything that is not the current URL. **The renderer still renders no remote
+content and still cannot open a socket.** Nothing downloaded is ever rendered — it is
+handed to ffprobe and ffmpeg as a file path and leaves as an mp3.
+
+**What is new is one adapter in main spawning one binary against a URL the user typed.**
+Five things bound it, and each is a line of code rather than a promise:
+
+| Bound | Where | What it stops |
+|---|---|---|
+| `http:`/`https:` only, parsed before spawn | `validate.ipc.ts` | `file:`, `data:`, and every scheme yt-dlp would otherwise happily accept, including the ones that read the local disk |
+| argv array, no shell | `runChild` | the URL being a command; there is no string for a `;` to sit in |
+| `--ignore-config` | Download Adapter | a `~/.config/yt-dlp/config` on the user's machine adding `--exec` to a child *we* spawn |
+| `--ffmpeg-location` pinned to `resources/bin` | Download Adapter | yt-dlp finding some other ffmpeg on `PATH` — ours is the one built `--disable-network` |
+| `-o` is our own template; the remote title goes to a *file*, never a filename | Download Adapter | a crafted title deciding where bytes land, which is path traversal wearing a `%(title)s` |
+
+**The residual risk, named rather than engineered around.** yt-dlp is a large program that
+parses hostile HTML for a living, and `ytdlpPath` (ADR-0055) lets the user point the app at
+a binary we did not ship. Both are accepted: the first is the feature, and the second is a
+user electing to run their own executable, which they could do without us. What the design
+does *not* do is discover one — `ytdlpPath` is read, validated and used, never searched for
+(the `locateMount()` rule, ADR-0016).
+
+**The offline guarantee is now partial, and that is the honest claim.** Every path that
+existed before still works with no network. One new path does not.
 
 *(Error handling, persistence and testing are excluded for the opposite reason — each is
 settled in one place already. Having a home is what disqualifies them from being
@@ -699,9 +745,10 @@ and two things here are opened by the OS, not by Node:
 - **`better_sqlite3.node`** — a shared library, `dlopen`'d by the OS loader.
 
 Neither can live inside the archive, and getting each out is a **different Forge
-mechanism**. ffmpeg/ffprobe are arbitrary binaries, not npm packages, so nothing knows
-to unpack them automatically: they go in `packagerConfig.extraResource`, landing in
-`resources/bin/` as a sibling of the asar. `better_sqlite3.node` is an ordinary
+mechanism**. ffmpeg, ffprobe and yt-dlp are arbitrary binaries, not npm packages, so
+nothing knows to unpack them automatically: they go in `packagerConfig.extraResource`,
+which ships the whole `resources/bin` **directory**, landing beside the asar. The third
+binary therefore cost no packaging change at all — dropping it in was the change. `better_sqlite3.node` is an ordinary
 dependency, so `AutoUnpackNativesPlugin` finds it and unpacks it into
 `app.asar.unpacked/`, mirroring its in-archive path.
 
@@ -720,9 +767,15 @@ foreign-world fact here: it gets one home.
 > `app.isPackaged`, `process.resourcesPath`, and `.exe`. The adapters ask it for a
 > binary; they never construct a path.**
 
-Two consumers: the Engine Adapter and the Repository. This is *"all per-platform ugliness
-stops at the adapter"* applied to the **filesystem layout of the bundle** rather than to
-the device.
+Three consumers: the Engine Adapter, the Download Adapter and the Repository. This is
+*"all per-platform ugliness stops at the adapter"* applied to the **filesystem layout of
+the bundle** rather than to the device.
+
+**A user-supplied path is not an exception to this.** `ytdlpPath` (ADR-0055) is an absolute
+path the user gave us: it involves no `isPackaged`, no `resourcesPath` and no `.exe`, so it
+is a *setting the adapter reads*, exactly as the Device Adapter reads `mountPath`, and the
+resolver stays the sole author of bundle paths. The resolver answers *where did we ship
+it*; the setting answers *use that one instead*.
 
 ### 9.3 Building and signing
 
@@ -755,12 +808,18 @@ chapter explicitly *because* the app talks to nothing. Shipping one would retroa
 invalidate an argument already spent. A new version means the user downloads it from
 GitHub Releases, as they did the first one.
 
-**`resources/bin/` is gitignored and starts empty.** The binaries are platform *and* arch
+**`resources/bin/` is gitignored and starts empty.** The ffmpeg pair is platform *and* arch
 specific and must be **static** builds carrying `libmp3lame` — ffmpeg has no native mp3
 encoder, so a stock build probes fine, lists `mp3` under `-muxers`, then dies at
 `Unknown encoder 'libmp3lame'`. `npm run verify:bin` checks presence, the execute bit,
 static linkage, `libmp3lame` in `-encoders`, a sine → mp3 round trip, and the licence
 posture.
+
+**yt-dlp is the third binary and the odd one out.** It ships prebuilt and per-platform, so
+CI fetches the pin in `resources/ytdlp-version.txt` rather than compiling anything, and
+`verify:bin` only asks whether it is there, executable, and prints a version. It gets **no
+network check** — for the other two, a binary that cannot dial out is the stronger
+guarantee; for this one, dialling out is the job.
 
 ---
 
@@ -773,21 +832,21 @@ mean.
 resize; widths are renderer state and deliberately not persisted.
 
 ```text
-┌────────────────────────────────────────────────────────────────────────────────────────────┐
-│ [Import Media ▼] [Import Audiobook ▼]   APP TITLE   [Choose Music folder] [⚙ Settings] [⋮] │
-├──────────────────────────────┬──────────────────────────────┬──────────────────────────────┤
-│ Library         [Process] ⓘ │ Processed        [Stage] ⓘ  │ Watch  [Sync][Rescan][Eject] │
-│                              │                              │ (•Add to the end) (Reorder…  │
-│ 👁 MEDIA                     │ 👁 MEDIA                     │ 01  song.mp3             🗑  │
-│ song.mp3             ☐   🗑 │ song.mp3             ☐      │ 02  book — ch01 p1       🗑  │
-│ > Albums/            ☐   🗑 │ > Albums/            ☐      │ 03  book — ch01 p2       🗑  │
-├──────────────────────────────┼──────────────────────────────┤ ⚠ stray.mp3  unmanaged   🗑 │
-│ AUDIOBOOKS                   │ AUDIOBOOKS                   │╌╌ staged — the send list ╌╌╌╌│
-│ book.m4b         ⟳ 4/13  ✕ │ book.m4b  146 files  ☐   ↺ │ 04 ☰ track2.mp3          ⇤ │
-│ > Series/            ☐   🗑 │ v   ch01             ☐      │ 05 ☰ book.m4b     ⟳ 4/13   │
-│                              │                              │ transferring 7/40            │
-│                              │                              │ 3.1 GB free                  │
-└──────────────────────────────┴──────────────────────────────┴──────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ [Import Media ▼] [Import Audiobook ▼] [Import URL ▼]    APP TITLE     [Choose Music folder] [⚙ Settings] [⋮] │
+├────────────────────────────────────┬────────────────────────────────────┬────────────────────────────────────┤
+│ Library               [Process] ⓘ │ Processed              [Stage] ⓘ  │ Watch        [Sync][Rescan][Eject] │
+│                                    │                                    │ (•Add to the end) (Reorder…        │
+│ 👁 MEDIA                           │ 👁 MEDIA                           │ 01  song.mp3                   🗑  │
+│ song.mp3                   ☐   🗑 │ song.mp3                   ☐      │ 02  book — ch01 p1             🗑  │
+│ > Albums/                  ☐   🗑 │ > Albums/                  ☐      │ 03  book — ch01 p2             🗑  │
+├────────────────────────────────────┼────────────────────────────────────┤ ⚠ stray.mp3  unmanaged         🗑 │
+│ AUDIOBOOKS                         │ AUDIOBOOKS                         │╌╌ staged — the send list ╌╌╌╌╌╌╌╌╌╌│
+│ book.m4b               ⟳ 4/13  ✕ │ book.m4b  146 files  ☐         ↺ │ 04 ☰ track2.mp3                ⇤ │
+│ > Series/                  ☐   🗑 │ v   ch01                   ☐      │ 05 ☰ book.m4b           ⟳ 4/13   │
+│                                    │                                    │ transferring 7/40                  │
+│                                    │                                    │ 3.1 GB free                        │
+└────────────────────────────────────┴────────────────────────────────────┴────────────────────────────────────┘
 ```
 
 Row 2 is **Media**, row 3 is **Audiobooks**, in columns 1 and 2 only. The column names
@@ -798,6 +857,11 @@ the stage; the cell names only the type. A `notify` toast strip overlays the bot
 | 1 Library | all four states — it is the source library | `[Process]` |
 | 2 Processed | `processed` only | `[Stage]` |
 | 3 Watch | the last scan **and** the send list, split by a divider | `[Sync]`/`[Stop]` `[Rescan]` `[Eject]` |
+
+**Import lives in the header, not in a column**, because it is the one act that has no
+column yet — three split buttons, each a default action with the rarer one under the
+chevron: files/folder, files/folder, and one URL / a pasted list (ADR-0027). A URL import
+lands in column 1 like any other, as `media`; nothing about the row says where it came from.
 
 **An item never leaves column 1**, which mirrors the media still sitting at its original
 path. So a processed item is on screen twice on purpose: column 1 is what you have,
@@ -891,6 +955,13 @@ already there climbs `4/13 → 13/13`. Media is `1 → 1`: bare spinner, no coun
 
 **No `✕` on a transferring row**, because a transfer stops between files for the whole
 session, so a per-row cancel would promise a granularity the mechanism does not have.
+
+**A download has no row to wear a counter on** (ADR-0007 — the row follows the bytes), so
+its progress is a strip in column 1's header, `downloading n/m`, carrying the `✕` that
+stops the batch. It counts *confirmed downloads out of the paste*, not bytes: a single URL
+therefore reads as a spinner and never as a percentage, which is the same refusal ADR-0008
+makes about parsing ffmpeg's stderr. The strip is transient and leaves nothing behind — the
+rows that appear underneath it are the only trace a download happened.
 
 **An empty cell speaks only when the user has no way to know what comes next** — which
 yields exactly one message in columns 1 and 2. Column 3 has four empty states and they
