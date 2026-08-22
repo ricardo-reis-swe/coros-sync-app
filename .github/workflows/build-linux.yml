@@ -1,0 +1,68 @@
+name: build (Linux)
+
+on:
+  # release.yml calls this on a tag — same steps, the artifacts just get collected afterwards.
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  # Reading the ffmpeg release assets; nothing here writes.
+  contents: read
+
+concurrency:
+  group: build-linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # MakerDeb and MakerRpm shell out to these; neither is on the runner by default.
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fakeroot dpkg rpm xvfb
+
+      - run: npm ci
+
+      # resources/bin is gitignored and starts empty — the pin names the exact binaries to package.
+      - name: Fetch ffmpeg
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="ffmpeg-$(tr -d '[:space:]' < resources/ffmpeg-version.txt)"
+          if ! gh release download "$tag" --pattern ffmpeg-linux-x64.zip --clobber; then
+            echo "::error::$tag has no ffmpeg-linux-x64.zip — run the 'ffmpeg (Linux)' workflow"
+            exit 1
+          fi
+          mkdir -p resources/bin
+          unzip -o -d resources/bin ffmpeg-linux-x64.zip && rm ffmpeg-linux-x64.zip
+          chmod +x resources/bin/ffmpeg resources/bin/ffprobe
+
+      - run: npm run verify:bin
+
+      - run: npm run lint
+
+      - run: npm run make
+
+      # After make, never before: `test:e2e` repackages with the inspector fuse open, and
+      # out/make must hold the shipped build rather than the one Playwright can attach to.
+      - name: e2e
+        run: xvfb-run --auto-servernum npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coros-sync-app-linux-x64
+          path: out/make/**
+          if-no-files-found: error

@@ -1,0 +1,69 @@
+{
+  "name": "coros-sync-app",
+  "productName": "coros-sync-app",
+  "version": "1.0.0",
+  "description": "Import local audio, transcode it to mp3, and sync it onto a COROS watch over USB.",
+  "main": ".webpack/main",
+  "private": true,
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish",
+    "lint": "eslint --ext .ts,.tsx .",
+    "verify:bin": "node scripts/verify-bin.mjs",
+    "package:e2e": "E2E_FUSES=1 electron-forge package",
+    "test:e2e": "npm run package:e2e && playwright test"
+  },
+  "keywords": [
+    "electron",
+    "coros",
+    "mp3",
+    "audiobook",
+    "ffmpeg",
+    "usb"
+  ],
+  "author": {
+    "name": "Ricardo Reis",
+    "email": "ricardo_reis@live.com"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@electron-forge/cli": "^7.11.2",
+    "@electron-forge/maker-deb": "^7.11.2",
+    "@electron-forge/maker-rpm": "^7.11.2",
+    "@electron-forge/maker-squirrel": "^7.11.2",
+    "@electron-forge/maker-zip": "^7.11.2",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.11.2",
+    "@electron-forge/plugin-fuses": "^7.11.2",
+    "@electron-forge/plugin-webpack": "^7.11.2",
+    "@electron/fuses": "^1.8.0",
+    "@playwright/test": "^1.62.1",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "@vercel/webpack-asset-relocator-loader": "^1.7.3",
+    "css-loader": "^6.11.0",
+    "electron": "43.1.0",
+    "eslint": "^8.57.1",
+    "eslint-plugin-import": "^2.32.0",
+    "fork-ts-checker-webpack-plugin": "^9.1.0",
+    "node-loader": "^2.1.0",
+    "postcss": "^8.5.26",
+    "postcss-loader": "^8.2.1",
+    "style-loader": "^3.3.4",
+    "tailwindcss": "^4.3.3",
+    "ts-loader": "^9.6.2",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "electron-squirrel-startup": "^1.0.1",
+    "lucide-react": "^1.31.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  }
+}

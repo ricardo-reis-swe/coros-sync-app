@@ -1,0 +1,77 @@
+name: build (macOS)
+
+on:
+  # release.yml calls this on a tag — same steps, the artifacts just get collected afterwards.
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  # Reading the ffmpeg release assets; nothing here writes.
+  contents: read
+
+concurrency:
+  group: build-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            asset: ffmpeg-darwin-arm64
+            native: true
+          - arch: x64
+            asset: ffmpeg-darwin-x64
+            native: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # resources/bin is gitignored and starts empty — the pin names the exact binaries to package.
+      - name: Fetch ffmpeg
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="ffmpeg-$(tr -d '[:space:]' < resources/ffmpeg-version.txt)"
+          if ! gh release download "$tag" --pattern ${{ matrix.asset }}.zip --clobber; then
+            echo "::error::$tag has no ${{ matrix.asset }}.zip — run the 'ffmpeg (macOS)' workflow"
+            exit 1
+          fi
+          mkdir -p resources/bin
+          unzip -o -d resources/bin ${{ matrix.asset }}.zip && rm ${{ matrix.asset }}.zip
+          chmod +x resources/bin/ffmpeg resources/bin/ffprobe
+
+      # The x64 pair cannot execute on the arm64 runner, and there is no Rosetta here.
+      - name: Verify binaries
+        if: matrix.native
+        run: npm run verify:bin
+
+      - run: npm run lint
+
+      - run: npm run make -- --arch=${{ matrix.arch }}
+
+      # The exact regression ARCHITECTURE §9.3 records: Fuses edits the Mach-O after Electron's own
+      # signature, and without the postPackage hook the bundle is dead on any quarantined Mac.
+      - name: Confirm the bundle is validly signed
+        run: |
+          app=$(find out -maxdepth 3 -name '*.app' -print -quit)
+          codesign --verify --verbose "$app"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coros-sync-app-darwin-${{ matrix.arch }}
+          path: out/make/**
+          if-no-files-found: error

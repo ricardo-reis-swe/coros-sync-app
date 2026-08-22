@@ -1,0 +1,78 @@
+name: release
+
+# A tag is the only trigger: Forge names every installer from package.json, so "which build
+# shipped" has to be a version someone chose, never a run number.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # A tag that disagrees with package.json ships v1.0.0 files under a v1.1.0 release.
+      - name: Tag matches package.json
+        run: |
+          pkg=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF_NAME#v}" != "$pkg" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match package.json ${pkg}"
+            exit 1
+          fi
+
+  linux:
+    needs: guard
+    uses: ./.github/workflows/build-linux.yml
+
+  macos:
+    needs: guard
+    uses: ./.github/workflows/build-macos.yml
+
+  windows:
+    needs: guard
+    uses: ./.github/workflows/build-windows.yml
+
+  publish:
+    needs: [linux, macos, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      # The one job here that writes: the release and its assets.
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: coros-sync-app-*
+          path: dist
+          merge-multiple: true
+
+      - name: Collect installers
+        run: |
+          mkdir -p upload
+          # Squirrel's RELEASES/.nupkg pair exists to feed an updater this app does not have (ADR-0014).
+          find dist -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.zip' -o -name '*.exe' \) |
+            while read -r f; do
+              # Squirrel's installer name carries a space; a download URL should not.
+              cp "$f" "upload/$(basename "$f" | tr ' ' '.')"
+            done
+          ls -l upload
+
+      # Draft, not live: the LGPL notices these binaries owe are not in the release yet
+      # (resources/README.md § Shipping). Publishing is a human step until they are.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" upload/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --draft

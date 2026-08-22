@@ -1,0 +1,66 @@
+name: ffmpeg (macOS)
+
+# Hand-run only. The pin lives in resources/ffmpeg-version.txt and moves about once a year;
+# a push trigger would spend three 40-minute runners on a typo in a comment.
+on:
+  workflow_dispatch:
+
+permissions:
+  # Publishing the binaries as release assets — the handoff to build-macos.yml.
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macos-latest is arm64; x86_64 is cross-compiled by the script's --enable-cross-compile branch.
+          - arch: arm64
+            asset: ffmpeg-darwin-arm64
+            native: true
+          - arch: x86_64
+            asset: ffmpeg-darwin-x64
+            native: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - id: pin
+        run: echo "version=$(tr -d '[:space:]' < resources/ffmpeg-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Build ffmpeg + ffprobe
+        run: bash scripts/build-ffmpeg.sh ${{ matrix.arch }}
+
+      # Cross-built x86_64 cannot execute on the arm64 runner, and there is no Rosetta here.
+      - name: Verify
+        if: matrix.native
+        run: npm run verify:bin
+
+      - name: Sanity-check the cross build
+        if: ${{ !matrix.native }}
+        run: |
+          lipo -archs resources/bin/ffmpeg
+          lipo -archs resources/bin/ffprobe
+          codesign --verify --verbose resources/bin/ffmpeg
+
+      # A release asset outlives the 90-day artifact window and pins by version rather than
+      # by "whichever run finished last" — the app builds ask for a tag, not for the newest run.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ffmpeg-${{ steps.pin.outputs.version }}
+        run: |
+          # -j so the zip holds two bare filenames, not resources/bin/… paths.
+          zip -j ${{ matrix.asset }}.zip resources/bin/ffmpeg resources/bin/ffprobe
+          # The two matrix arches race here; the loser of `create` still uploads.
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" \
+            --title "ffmpeg ${{ steps.pin.outputs.version }}" \
+            --prerelease \
+            --notes "Static LGPL ffmpeg/ffprobe consumed by the app builds. Not an app download." || true
+          gh release upload "$TAG" ${{ matrix.asset }}.zip --clobber

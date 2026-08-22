@@ -1,0 +1,66 @@
+name: ffmpeg (Windows)
+
+# Hand-run only. The pin lives in resources/ffmpeg-version.txt and moves about once a year;
+# a push trigger would spend three 40-minute runners on a typo in a comment.
+on:
+  workflow_dispatch:
+
+permissions:
+  # Publishing the binaries as release assets — the handoff to build-windows.yml.
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - id: pin
+        run: echo "version=$(tr -d '[:space:]' < resources/ffmpeg-version.txt)" >> "$GITHUB_OUTPUT"
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            base-devel
+            make
+            diffutils
+            nasm
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-pkgconf
+
+      - name: Build ffmpeg + ffprobe
+        shell: msys2 {0}
+        run: bash scripts/build-ffmpeg-windows.sh
+
+      # Run the check outside MSYS2 — a build that only works inside that shell is the failure mode.
+      - name: Verify
+        run: npm run verify:bin
+
+      # Git Bash ships no zip; PowerShell's Compress-Archive stores bare filenames, which is what we want.
+      - name: Pack
+        shell: pwsh
+        run: Compress-Archive -Path resources/bin/ffmpeg.exe, resources/bin/ffprobe.exe -DestinationPath ffmpeg-win32-x64.zip -Force
+
+      # A release asset outlives the 90-day artifact window and pins by version rather than
+      # by "whichever run finished last" — the app builds ask for a tag, not for the newest run.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ffmpeg-${{ steps.pin.outputs.version }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" \
+            --title "ffmpeg ${{ steps.pin.outputs.version }}" \
+            --prerelease \
+            --notes "Static LGPL ffmpeg/ffprobe consumed by the app builds. Not an app download." || true
+          gh release upload "$TAG" ffmpeg-win32-x64.zip --clobber

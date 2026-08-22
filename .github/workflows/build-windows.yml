@@ -1,0 +1,66 @@
+name: build (Windows)
+
+on:
+  # release.yml calls this on a tag — same steps, the artifacts just get collected afterwards.
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  # Reading the ffmpeg release assets; nothing here writes.
+  contents: read
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # resources/bin is gitignored and starts empty — the pin names the exact binaries to package.
+      - name: Fetch ffmpeg
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="ffmpeg-$(tr -d '[:space:]' < resources/ffmpeg-version.txt)"
+          if ! gh release download "$tag" --pattern ffmpeg-win32-x64.zip --clobber; then
+            echo "::error::$tag has no ffmpeg-win32-x64.zip — run the 'ffmpeg (Windows)' workflow"
+            exit 1
+          fi
+
+      # Git Bash ships no unzip.
+      - name: Unpack ffmpeg
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path resources/bin | Out-Null
+          Expand-Archive -Path ffmpeg-win32-x64.zip -DestinationPath resources/bin -Force
+          Remove-Item ffmpeg-win32-x64.zip
+
+      - run: npm run verify:bin
+
+      - run: npm run lint
+
+      - run: npm run make
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coros-sync-app-win32-x64
+          path: out/make/**
+          if-no-files-found: error

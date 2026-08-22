@@ -1,0 +1,4 @@
+@import 'tailwindcss';
+
+/* The hand-written sheet sits in a layer so utilities outrank it; unlayered rules would win instead. */
+@import './app.css' layer(components);

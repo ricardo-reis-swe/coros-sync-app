@@ -1,0 +1,51 @@
+name: ffmpeg (Linux)
+
+# Hand-run only. The pin lives in resources/ffmpeg-version.txt and moves about once a year;
+# a push trigger would spend three 40-minute runners on a typo in a comment.
+on:
+  workflow_dispatch:
+
+permissions:
+  # Publishing the binaries as release assets — the handoff to build-linux.yml.
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - id: pin
+        run: echo "version=$(tr -d '[:space:]' < resources/ffmpeg-version.txt)" >> "$GITHUB_OUTPUT"
+
+      # libc6-dev (via build-essential) is what supplies libc.a — without it -static silently fails.
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential nasm pkg-config
+
+      - name: Build ffmpeg + ffprobe
+        run: bash scripts/build-ffmpeg-linux.sh
+
+      - name: Verify
+        run: npm run verify:bin
+
+      # A release asset outlives the 90-day artifact window and pins by version rather than
+      # by "whichever run finished last" — the app builds ask for a tag, not for the newest run.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ffmpeg-${{ steps.pin.outputs.version }}
+        run: |
+          # -j so the zip holds two bare filenames, not resources/bin/… paths.
+          zip -j ffmpeg-linux-x64.zip resources/bin/ffmpeg resources/bin/ffprobe
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" \
+            --title "ffmpeg ${{ steps.pin.outputs.version }}" \
+            --prerelease \
+            --notes "Static LGPL ffmpeg/ffprobe consumed by the app builds. Not an app download." || true
+          gh release upload "$TAG" ffmpeg-linux-x64.zip --clobber
