@@ -32,7 +32,7 @@ built on them. A handful of largely unpaid maintainers keep all of that working.
 - **Donate to FFmpeg** → [ffmpeg.org/donations.html](https://ffmpeg.org/donations.html)
 - **Donate to yt-dlp** → [its maintainers' sponsor links](https://github.com/yt-dlp/yt-dlp/blob/master/Maintainers.md)
 
-## Story
+## Why it exists
 
 I listen to audiobooks, podcasts and long YouTube videos when I run, and I had a few
 scripts lying around to download, convert and transfer them. I also added a way to
@@ -49,52 +49,45 @@ paste in.
 
 Work in progress. Issues and suggestions welcome.
 
-## Instructions
+### Instructions
 
-**1 · Point it at the watch.** Plug the watch in as USB storage and press **Choose
-Music folder**. Pick the `Music` folder inside the watch's volume, not the volume
-itself. The **Watch** column then shows what is on the device, rescanning on focus, on
-**Rescan**, and before every sync. **Eject** unmounts the volume.
+**1 · Point it at the watch.** Plug it in as USB storage, press **Choose Music
+folder**, and pick the `Music` folder inside the volume — not the volume. The **Watch**
+column then mirrors the device, rescanning on focus, on **Rescan**, and before every
+sync. **Eject** unmounts.
 
-**2 · Import.** **Import Media** for music and podcasts — one file in, one mp3 out.
-**Import Audiobook** for books — cut at chapter marks, with any chapter longer than the
-split length becoming several parts. The arrow beside either button imports a whole
-folder. **Import URL** takes a YouTube link — yt-dlp fetches the audio as a _source_,
-so it lands in the library like any other import and **Process** still makes the mp3.
-If a URL import starts failing, YouTube has changed and the bundled yt-dlp has gone
-stale: **Update yt-dlp** in Settings fetches a current one.
-Everything lands in **Library**, where a title can be renamed or deleted until it is
-processed.
+**2 · Import.** **Import Media** for music and podcasts: one file in, one mp3 out.
+**Import Audiobook** cuts at chapter marks, splitting any chapter longer than the split
+length. The arrow beside either takes a whole folder. **Import URL** hands a YouTube
+link to yt-dlp: the audio lands in **Library** as a *source*, and **Process** still
+makes the mp3. If URL imports start failing, YouTube has changed — **Update yt-dlp** in
+Settings. Titles can be renamed or deleted until processed.
 
 ![The URL import modal](docs/screenshots/url-import.png)
 
-**3 · Process.** Tick rows and press **Process**. Bitrate and split length are read at
-that moment, so change them in Settings first. A processing row shows a spinner, a part
-counter for audiobooks, and an `×` to cancel.
+**3 · Process.** Tick rows, press **Process**. Bitrate and split length are read at that
+moment, so set them first. Rows show a spinner, a part counter, and an `×` to cancel.
 
 ![An audiobook mid-processing, fanning out into parts](docs/screenshots/processing.png)
 
-**4 · Stage.** Finished items appear in **Processed**. Tick them and press **Stage** to
-build the send list, drawn below the divider in the Watch column and numbered in
-playback order. Drag rows to reorder, or press `⇤` to take one back off.
+**4 · Stage.** Tick finished items in **Processed** and press **Stage**. They appear
+below the divider in the Watch column, numbered in playback order — drag to reorder, `⇤`
+to take one back.
 
-**5 · Sync.** Two modes, chosen next to the Sync button:
+**5 · Sync.** **Add to the end** appends the staged list. **Reorder all** deletes and
+rewrites every file the app manages in your order, since the watch cannot reorder in
+place; it tells you the cost first. Files it did not put there survive as _unmanaged_,
+unplaceable.
 
-- **Add to the end** — copies the staged list after everything already on the watch.
-- **Reorder all** — the watch cannot be reordered in place, so every file this app
-  manages is deleted and rewritten in your order. You are told the cost and asked
-  first. Files the app did not put there survive as _unmanaged_, but cannot be placed.
+Files copy one at a time. **Stop** lands between files, never mid-file, and unplugging
+mid-transfer is not fatal — a rescan corrects the record.
 
-Files are copied one at a time. **Stop** takes effect between files, never mid-file,
-and unplugging mid-transfer is not fatal — a rescan corrects the record.
-
-## Settings
+### Settings
 
 ![The settings modal](docs/screenshots/settings.png)
 
-Seed settings are read when you press **Process** and then recorded on the item.
-Changing one never rewrites something already processed. Live settings are read at the
-moment they are used.
+Seed settings are read when you press **Process** and recorded on the item; changing one
+never rewrites what is already processed. Live settings are read as they are used.
 
 | Setting                        | Kind | Meaning                                                                            | Default   |
 | ------------------------------ | ---- | ---------------------------------------------------------------------------------- | --------- |
@@ -109,16 +102,14 @@ moment they are used.
 | Update yt-dlp                  | —    | fetches a current yt-dlp and points the field above at it                          | —         |
 | Watch Music folder             | Live | the mount path — picked, not detected                                              | —         |
 
-The `⋮` menu holds the diagnostics: open the log folder, copy the logs, and open the
-app-data folder.
+The `⋮` menu opens the log folder, copies the logs, and opens the app-data folder.
 
-## On the watch
+### On the watch
 
-The watch shows **ID3 tags, not filenames** — the title on the big line, the artist on
-the small line under it. That is what the rename settings are for.
-
-For an audiobook the app puts the book on the title line and `CC PP` — chapter, then
-part — on the artist line, so a list of parts reads as one book in order:
+The watch shows **ID3 tags, not filenames** — title on the big line, artist on the small
+one, which is what the rename settings are for. An audiobook gets the book as title and
+`CC PP` — chapter, then part — as artist, so its parts read as one book in order. Music
+and podcasts get the filename stem and the item's author.
 
 <p>
   <img src="docs/screenshots/watch-list.jpg" alt="The watch listing an audiobook's parts" height="300">
@@ -126,19 +117,15 @@ part — on the artist line, so a list of parts reads as one book in order:
   <img src="docs/screenshots/watch-playing.jpg" alt="The watch playing a part" height="300">
 </p>
 
-Music and podcasts get the filename stem as the title and the item's author as the
-artist.
+The file on disk is named separately — `<title> - CC - <chapter> - PP.mp3`, stripped of
+what FAT rejects and cut to 120 characters. Nothing reads it back: the name finds the
+file, the tags fill the screen, and neither decides playback order. Write order does.
 
-The file on disk is named separately, as `<title> - CC - <chapter> - PP.mp3`, stripped
-of characters FAT rejects and cut to 120 characters. Nothing ever reads it back — the
-name is for finding the file on the volume, the tags are for the screen, and neither
-one decides playback order. That comes from write order alone.
+### Architecture
 
-## Architecture
-
-The main process has three layers, with dependencies pointing one way: edge → domain →
-infrastructure. The renderer is sandboxed: it sends intents and mirrors the event
-stream. It never updates its own state, because incoming events are the only writer.
+Three layers in main, dependencies pointing one way: edge → domain → infrastructure. The
+renderer is sandboxed — it sends intents and mirrors the event stream, never writing its
+own state.
 
 ```mermaid
 flowchart LR
@@ -156,20 +143,19 @@ flowchart LR
 The rules that hold it together:
 
 - An output row is written only after FFmpeg exits 0 and the file provably exists.
-- There is no `failed` state. Failure cleans up the item's outputs and reverts it.
-- Every device write is `.part` then an atomic rename. The rename is the confirmation,
+- There is no `failed` state: failure cleans up the item's outputs and reverts it.
+- Every device write is `.part` then an atomic rename — the rename is the confirmation,
   not the last byte.
-- The device is polled on demand, and the scan is then discarded. All it leaves behind
-  is a corrected `onWatch` boolean.
+- The device is polled on demand and the scan discarded; all it leaves behind is a
+  corrected `onWatch` boolean.
 - Transfers are serial and written forward, because write order is playback order.
 
-The design is documented and binding, in three files:
-[CONTRACTS.md](docs/CONTRACTS.md) for the shape of every seam,
-[DECISIONS.md](docs/DECISIONS.md) for the decision log and what breaks if you reverse
-one, and [ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the program works. Decisions
-win over contracts, contracts over prose, and prose over code.
+The design is binding: [CONTRACTS.md](docs/CONTRACTS.md) for every seam's shape,
+[DECISIONS.md](docs/DECISIONS.md) for the log and what breaks if you reverse one,
+[ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it works — decisions beat contracts,
+contracts beat prose, prose beats code.
 
-## Development
+### Development
 
 ```bash
 npm install
@@ -186,18 +172,16 @@ npm start
 | `npm run lint`             | ESLint over the TypeScript                                  |
 | `npm run test:e2e`         | Repackage, then run Playwright against the **packaged** app |
 
-There are no unit tests, by design. The specs in [e2e/](e2e/) drive the real packaged
-binary end to end, with the native dialogs stubbed inside the harness so that nothing
-in `src/` knows a test exists.
+No unit tests, by design — the specs in [e2e/](e2e/) drive the real packaged binary, with
+the native dialogs stubbed in the harness so nothing in `src/` knows a test exists.
 
-**Status.** The import → process → stage → sync path works and is under e2e test, URL
-import included (ADR-0027, ADR-0055, ADR-0056). Still open: confirming on hardware that
-the watch keeps its order across a power cycle; a playlist link imports only its first
-entry; how often a release should move the pinned yt-dlp version, given that a pin goes
-stale in about a month and **Update yt-dlp** is the answer in between; and macOS signing
-and notarisation.
+**Status.** Import → process → stage → sync works and is under e2e test, URL import
+included (ADR-0027, ADR-0055, ADR-0056). Open: whether the watch keeps its order across
+a power cycle; playlist links import only their first entry; how often a release should
+move the pinned yt-dlp, which goes stale in about a month; macOS signing and
+notarisation.
 
-## License
+### License
 
 [GNU GPL v3.0 or later](LICENSE) © 2026 Ricardo Reis. Anything built on this stays
 open source.
