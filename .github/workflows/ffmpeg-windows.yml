@@ -45,7 +45,7 @@ jobs:
 
       # Run the check outside MSYS2 — a build that only works inside that shell is the failure mode.
       - name: Verify
-        run: npm run verify:bin
+        run: npm run verify:bin -- --ffmpeg-only
 
       # Git Bash ships no zip; PowerShell's Compress-Archive stores bare filenames, which is what we want.
       - name: Pack

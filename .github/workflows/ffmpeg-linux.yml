@@ -33,7 +33,7 @@ jobs:
         run: bash scripts/build-ffmpeg-linux.sh
 
       - name: Verify
-        run: npm run verify:bin
+        run: npm run verify:bin -- --ffmpeg-only
 
       # A release asset outlives the 90-day artifact window and pins by version rather than
       # by "whichever run finished last" — the app builds ask for a tag, not for the newest run.

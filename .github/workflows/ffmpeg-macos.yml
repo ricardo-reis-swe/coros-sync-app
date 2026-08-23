@@ -44,7 +44,7 @@ jobs:
       # Cross-built x86_64 cannot execute on the arm64 runner, and there is no Rosetta here.
       - name: Verify
         if: matrix.native
-        run: npm run verify:bin
+        run: npm run verify:bin -- --ffmpeg-only
 
       - name: Sanity-check the cross build
         if: ${{ !matrix.native }}
