@@ -4,8 +4,6 @@ on:
   # release.yml calls this on a tag — same steps, the artifacts just get collected afterwards.
   workflow_call:
   workflow_dispatch:
-  push:
-    branches: [main]
   pull_request:
 
 permissions:
