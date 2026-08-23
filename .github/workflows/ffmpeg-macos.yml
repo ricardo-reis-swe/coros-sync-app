@@ -31,6 +31,10 @@ jobs:
         with:
           node-version: 22
 
+      # Only the x86_64 leg needs it — aarch64 asm goes through clang's integrated assembler.
+      - name: Install toolchain
+        run: brew install nasm || brew upgrade nasm
+
       - id: pin
         run: echo "version=$(tr -d '[:space:]' < resources/ffmpeg-version.txt)" >> "$GITHUB_OUTPUT"
 

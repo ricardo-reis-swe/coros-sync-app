@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds a minimal ffmpeg/ffprobe into resources/bin. LGPL, no network, lame the only external lib.
 # Usage: bash scripts/build-ffmpeg.sh [arm64|x86_64]   — defaults to this Mac. Then: npm run verify:bin
+# Needs: Xcode command line tools, plus nasm for an x86_64 build (aarch64 asm needs only clang).
 
 set -euo pipefail
 
@@ -74,6 +75,9 @@ configure_flags=(
     --extra-cflags="-I$PREFIX/include"
     --extra-ldflags="-L$PREFIX/lib"
 )
+
+# configure only says this two minutes in, after it has already fetched and unpacked everything.
+[ "$FF_ARCH" != x86_64 ] || command -v nasm >/dev/null || { echo "x86_64 needs nasm (brew install nasm)" >&2; exit 1; }
 
 [ "$ARCH" = "$(uname -m)" ] || configure_flags+=(--enable-cross-compile --arch="$FF_ARCH" --target-os=darwin --cc="$CC")
 
