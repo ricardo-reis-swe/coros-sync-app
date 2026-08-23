@@ -4,7 +4,33 @@ Import local music and audiobooks, transcode them to mp3, optionally split the l
 ones into parts, and sync them onto a Coros watch over USB. Built against a Pace 3;
 other models may (not) work, tell me and i can add a table with support.
 
+_An independent project. Not affiliated with, endorsed by or supported by COROS_
+
 ![The main window: Library, Processed and Watch columns](docs/screenshots/main.png)
+
+## Support the tools underneath
+
+Every probe and every transcode in this app is [FFmpeg](https://ffmpeg.org), and
+[yt-dlp](https://github.com/yt-dlp/yt-dlp) is what fills the library it syncs. Both are
+free software and both run on donations.
+
+FFmpeg is not a niche dependency — it runs most of the video on the internet. Google
+puts YouTube through it, Netflix, Meta and Amazon transcode with it, Microsoft ships it
+in Azure's media pipeline, Chrome and Firefox decode with its libraries, and VLC is
+built on them. A handful of largely unpaid maintainers keep all of that working.
+
+<p>
+  <a href="https://ffmpeg.org/donations.html">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/5/5f/FFmpeg_Logo_new.svg" alt="FFmpeg" height="42">
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/yt-dlp/yt-dlp/blob/master/Maintainers.md">
+    <img src="https://raw.githubusercontent.com/yt-dlp/yt-dlp/master/.github/banner.svg" alt="yt-dlp" height="42">
+  </a>
+</p>
+
+- **Donate to FFmpeg** → [ffmpeg.org/donations.html](https://ffmpeg.org/donations.html)
+- **Donate to yt-dlp** → [its maintainers' sponsor links](https://github.com/yt-dlp/yt-dlp/blob/master/Maintainers.md)
 
 ## Story
 
@@ -33,7 +59,7 @@ itself. The **Watch** column then shows what is on the device, rescanning on foc
 **2 · Import.** **Import Media** for music and podcasts — one file in, one mp3 out.
 **Import Audiobook** for books — cut at chapter marks, with any chapter longer than the
 split length becoming several parts. The arrow beside either button imports a whole
-folder. **Import URL** takes a YouTube link — yt-dlp fetches the audio as a *source*,
+folder. **Import URL** takes a YouTube link — yt-dlp fetches the audio as a _source_,
 so it lands in the library like any other import and **Process** still makes the mp3.
 If a URL import starts failing, YouTube has changed and the bundled yt-dlp has gone
 stale: **Update yt-dlp** in Settings fetches a current one.
@@ -94,8 +120,11 @@ the small line under it. That is what the rename settings are for.
 For an audiobook the app puts the book on the title line and `CC PP` — chapter, then
 part — on the artist line, so a list of parts reads as one book in order:
 
-![The watch listing an audiobook's parts](docs/screenshots/watch-list.jpg)
-![The watch playing a part](docs/screenshots/watch-playing.jpg)
+<p>
+  <img src="docs/screenshots/watch-list.jpg" alt="The watch listing an audiobook's parts" height="300">
+  &nbsp;
+  <img src="docs/screenshots/watch-playing.jpg" alt="The watch playing a part" height="300">
+</p>
 
 Music and podcasts get the filename stem as the title and the item's author as the
 artist.
@@ -167,25 +196,6 @@ the watch keeps its order across a power cycle; a playlist link imports only its
 entry; how often a release should move the pinned yt-dlp version, given that a pin goes
 stale in about a month and **Update yt-dlp** is the answer in between; and macOS signing
 and notarisation.
-
-## Support the tools underneath
-
-Every probe and every transcode in this app is [FFmpeg](https://ffmpeg.org), and
-[yt-dlp](https://github.com/yt-dlp/yt-dlp) is what fills the library it syncs. Both are
-free software and both run on donations.
-
-<p>
-  <a href="https://ffmpeg.org/donations.html">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/5/5f/FFmpeg_Logo_new.svg" alt="FFmpeg" height="42">
-  </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://github.com/yt-dlp/yt-dlp/blob/master/Maintainers.md">
-    <img src="https://raw.githubusercontent.com/yt-dlp/yt-dlp/master/.github/banner.svg" alt="yt-dlp" height="42">
-  </a>
-</p>
-
-- **Donate to FFmpeg** → [ffmpeg.org/donations.html](https://ffmpeg.org/donations.html)
-- **Donate to yt-dlp** → [its maintainers' sponsor links](https://github.com/yt-dlp/yt-dlp/blob/master/Maintainers.md)
 
 ## License
 
