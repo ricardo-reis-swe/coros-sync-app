@@ -8,6 +8,8 @@ _An independent project. Not affiliated with, endorsed by or supported by COROS_
 
 ![The main window: Library, Processed and Watch columns](docs/screenshots/main.png)
 
+[Why it exists](#why-it-exists) · [Install](#install) · [Instructions](#instructions) · [Settings](#settings) · [On the watch](#on-the-watch) · [Architecture](#architecture) · [Development](#development) · [Support the tools](#support-the-tools-underneath)
+
 ## Support the tools underneath
 
 Every probe and every transcode in this app is [FFmpeg](https://ffmpeg.org), and
@@ -48,6 +50,25 @@ Everything runs locally. The only network call is yt-dlp fetching a YouTube URL 
 paste in.
 
 Work in progress. Issues and suggestions welcome.
+
+### Install
+
+Downloads are on the [Releases](../../releases) page. Nothing else to install — FFmpeg and
+yt-dlp ship inside. Plug the watch in as USB storage before you start.
+
+| Platform | File | First launch |
+| --- | --- | --- |
+| macOS 12+ | the `darwin-arm64` zip for Apple silicon, `darwin-x64` for Intel | Unzip, drag to Applications. macOS refuses it — **System Settings → Privacy & Security → Open Anyway**. |
+| Windows 10+ | the `Setup.exe` | SmartScreen warns — **More info → Run anyway**. |
+| Linux | the `.deb` or `.rpm` | `sudo apt install ./<file>.deb`, or `sudo dnf install ./<file>.rpm` |
+
+Both warnings say the same thing: the macOS build is signed ad-hoc and the Windows one is
+not signed at all. Certificates cost money every year; this does not.
+
+macOS asks for access to the watch the first time it reads the volume. Say yes — denied,
+the app can see the watch is plugged in but nothing on it.
+
+_No build is published yet. The first tag makes one._
 
 ### Instructions
 
@@ -176,10 +197,9 @@ No unit tests, by design — the specs in [e2e/](e2e/) drive the real packaged b
 the native dialogs stubbed in the harness so nothing in `src/` knows a test exists.
 
 **Status.** Import → process → stage → sync works and is under e2e test, URL import
-included (ADR-0027, ADR-0055, ADR-0056). Open: whether the watch keeps its order across
-a power cycle; playlist links import only their first entry; how often a release should
-move the pinned yt-dlp, which goes stale in about a month; macOS signing and
-notarisation.
+included (ADR-0027, ADR-0055, ADR-0056). Order is confirmed durable across a power cycle.
+Open: playlist links import only their first entry; how often a release should move the
+pinned yt-dlp, which goes stale in about a month; macOS notarisation.
 
 ### License
 
