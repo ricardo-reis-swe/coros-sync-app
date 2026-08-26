@@ -30,6 +30,12 @@ jobs:
           node-version: 22
           cache: npm
 
+      # npm's bundled node-gyp blows its stdout buffer probing VS on this image and reports "no VS at all".
+      - name: Current node-gyp
+        run: |
+          npm install -g node-gyp@latest
+          npm config set node_gyp "$(npm prefix -g)/node_modules/node-gyp/bin/node-gyp.js"
+
       - run: npm ci
 
       # resources/bin is gitignored and starts empty — the pin names the exact binaries to package.
