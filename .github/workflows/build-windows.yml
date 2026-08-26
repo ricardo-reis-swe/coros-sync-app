@@ -20,7 +20,8 @@ defaults:
 
 jobs:
   build:
-    runs-on: windows-latest
+    # Not windows-latest: it ships VS 18, and @electron/rebuild's vendored node-gyp stops at 17.
+    runs-on: windows-2022
 
     steps:
       - uses: actions/checkout@v4
@@ -29,15 +30,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-
-      # npm's bundled node-gyp blows its stdout buffer probing VS on this image and reports "no VS at all".
-      - name: Current node-gyp
-        run: |
-          npm install -g node-gyp@latest
-          # npm 10 dropped `npm config set node_gyp`; the env var is the only way in.
-          gyp="$(npm prefix -g)/node_modules/node-gyp/bin/node-gyp.js"
-          test -f "$gyp" || { echo "::error::no node-gyp at $gyp"; exit 1; }
-          echo "npm_config_node_gyp=$gyp" >> "$GITHUB_ENV"
 
       - run: npm ci
 
