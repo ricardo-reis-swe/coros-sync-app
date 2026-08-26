@@ -999,10 +999,11 @@ widens that path.
 
 Confirmed on real hardware: the watch's directory scan is **filenames only**, atomic
 rename works, and the 120-char cap holds. Packaged `spawn` + `dlopen` work on Linux x64
-and macOS arm64.
+and macOS arm64. Added 08-26: **a power cycle preserves the order** — write order is
+durable, not re-derived at boot; **the player shows ID3 tags**, not filenames; and macOS
+grants access to the watch's volume once `NSRemovableVolumesUsageDescription` exists,
+keyed to the bundle id, so it outlives a rebuild.
 
-**Still open**, and tracked in `DECISIONS.md §4`: whether the player orders by write
-*time* or directory *position* (only "write after a delete" can separate them, and it is
-the one failure no rename could fix); whether the watch's sort key is mtime or creation
-time; whether the watch displays ID3 tags at all; and macOS never granting the app
-persistent access to the watch's volume.
+Nothing about the device is open any more. The one distinction left unmeasured — mtime or
+creation time — has no observable consequence while the app writes both at once, and the
+shipped ordering is confirmed correct on the watch (`DECISIONS.md §4`).
