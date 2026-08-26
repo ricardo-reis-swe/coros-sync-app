@@ -32,6 +32,10 @@ jobs:
       - name: Build ffmpeg + ffprobe
         run: bash scripts/build-ffmpeg-linux.sh
 
+      # LGPL 2.1 travels with the binaries: licence text beside them, source attached to the release.
+      - name: Notices
+        run: node scripts/notices.mjs
+
       - name: Verify
         run: npm run verify:bin -- --ffmpeg-only
 
@@ -43,9 +47,11 @@ jobs:
           TAG: ffmpeg-${{ steps.pin.outputs.version }}
         run: |
           # -j so the zip holds two bare filenames, not resources/bin/… paths.
-          zip -j ffmpeg-linux-x64.zip resources/bin/ffmpeg resources/bin/ffprobe
+          zip -j ffmpeg-linux-x64.zip resources/bin/ffmpeg resources/bin/ffprobe \
+            resources/bin/THIRD-PARTY.txt resources/bin/COPYING.LGPLv2.1 resources/bin/COPYING.LAME
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" \
             --title "ffmpeg ${{ steps.pin.outputs.version }}" \
             --prerelease \
             --notes "Static LGPL ffmpeg/ffprobe consumed by the app builds. Not an app download." || true
           gh release upload "$TAG" ffmpeg-linux-x64.zip --clobber
+          gh release upload "$TAG" out/source/* --clobber

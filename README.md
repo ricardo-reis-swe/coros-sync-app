@@ -189,3 +189,7 @@ the native dialogs stubbed in the harness so nothing in `src/` knows a test exis
 
 [GNU GPL v3.0 or later](LICENSE) © 2026 Ricardo Reis. Anything built on this stays
 open source.
+
+The bundled FFmpeg and LAME are LGPL-2.1-or-later and are run as separate processes, never
+linked in. Their licence texts, the exact configure line and a pointer to the matching source
+ship inside the app, in `resources/bin/THIRD-PARTY.txt`.

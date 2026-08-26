@@ -43,6 +43,10 @@ jobs:
         shell: msys2 {0}
         run: bash scripts/build-ffmpeg-windows.sh
 
+      # LGPL 2.1 travels with the binaries: licence text beside them, source attached to the release.
+      - name: Notices
+        run: node scripts/notices.mjs
+
       # Run the check outside MSYS2 — a build that only works inside that shell is the failure mode.
       - name: Verify
         run: npm run verify:bin -- --ffmpeg-only
@@ -50,7 +54,7 @@ jobs:
       # Git Bash ships no zip; PowerShell's Compress-Archive stores bare filenames, which is what we want.
       - name: Pack
         shell: pwsh
-        run: Compress-Archive -Path resources/bin/ffmpeg.exe, resources/bin/ffprobe.exe -DestinationPath ffmpeg-win32-x64.zip -Force
+        run: Compress-Archive -Path resources/bin/ffmpeg.exe, resources/bin/ffprobe.exe, resources/bin/THIRD-PARTY.txt, resources/bin/COPYING.LGPLv2.1, resources/bin/COPYING.LAME -DestinationPath ffmpeg-win32-x64.zip -Force
 
       # A release asset outlives the 90-day artifact window and pins by version rather than
       # by "whichever run finished last" — the app builds ask for a tag, not for the newest run.
@@ -64,3 +68,4 @@ jobs:
             --prerelease \
             --notes "Static LGPL ffmpeg/ffprobe consumed by the app builds. Not an app download." || true
           gh release upload "$TAG" ffmpeg-win32-x64.zip --clobber
+          gh release upload "$TAG" out/source/* --clobber

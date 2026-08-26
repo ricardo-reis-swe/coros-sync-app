@@ -131,6 +131,11 @@ often a release is cut to do it is an open question (`DECISIONS.md §4`).
 
 ## Shipping
 
-Keep, per release: the ffmpeg version, the exact `configure` line above, `COPYING.LGPLv2.1`
-from the ffmpeg tree, and LAME's `COPYING`. Either host the source tarballs alongside the
-release or link the upstream ones by exact version.
+`scripts/notices.mjs` does this, and every ffmpeg workflow runs it before packing. It reads
+the configure line out of `config.h` — what the build actually did, not what a script claims —
+copies both `COPYING` files next to the binaries, writes `THIRD-PARTY.txt`, and stages the two
+source tarballs, which the workflow then attaches to the `ffmpeg-<version>` release.
+
+The zips carry all three files, so app builds inherit them by unpacking, and `extraResource`
+puts them inside the shipped app. Nothing here is owed by hand — but a build published without
+that step is a build distributed in breach, so do not pack one by hand either.
