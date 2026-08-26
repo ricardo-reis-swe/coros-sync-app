@@ -34,7 +34,10 @@ jobs:
       - name: Current node-gyp
         run: |
           npm install -g node-gyp@latest
-          npm config set node_gyp "$(npm prefix -g)/node_modules/node-gyp/bin/node-gyp.js"
+          # npm 10 dropped `npm config set node_gyp`; the env var is the only way in.
+          gyp="$(npm prefix -g)/node_modules/node-gyp/bin/node-gyp.js"
+          test -f "$gyp" || { echo "::error::no node-gyp at $gyp"; exit 1; }
+          echo "npm_config_node_gyp=$gyp" >> "$GITHUB_ENV"
 
       - run: npm ci
 
