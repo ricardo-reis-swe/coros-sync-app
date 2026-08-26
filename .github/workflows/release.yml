@@ -1,10 +1,11 @@
 name: release
 
-# A tag is the only trigger: Forge names every installer from package.json, so "which build
-# shipped" has to be a version someone chose, never a run number.
+# Forge names every installer from package.json, so "which build shipped" has to be a version
+# someone chose, never a run number — a tag says it, and on a dispatch package.json says it.
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,17 +17,35 @@ concurrency:
 jobs:
   guard:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.name.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
       # A tag that disagrees with package.json ships v1.0.0 files under a v1.1.0 release.
-      - name: Tag matches package.json
+      - name: Name the release
+        id: name
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           pkg=$(node -p "require('./package.json').version")
-          if [ "${GITHUB_REF_NAME#v}" != "$pkg" ]; then
-            echo "::error::tag ${GITHUB_REF_NAME} does not match package.json ${pkg}"
-            exit 1
+
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            if [ "${GITHUB_REF_NAME#v}" != "$pkg" ]; then
+              echo "::error::tag ${GITHUB_REF_NAME} does not match package.json ${pkg}"
+              exit 1
+            fi
+            tag=$GITHUB_REF_NAME
+          else
+            # No tag to read, so package.json is the version someone chose; gh cuts the tag at publish.
+            tag=v$pkg
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "::error::$tag is already released — bump package.json before dispatching"
+              exit 1
+            fi
           fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
   linux:
     needs: guard
@@ -41,7 +60,7 @@ jobs:
     uses: ./.github/workflows/build-windows.yml
 
   publish:
-    needs: [linux, macos, windows]
+    needs: [guard, linux, macos, windows]
     runs-on: ubuntu-latest
     permissions:
       # The one job here that writes: the release and its assets.
@@ -70,9 +89,12 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
+          # --target is what creates the tag on a dispatch; gh ignores it when the tag exists.
+          TAG: ${{ needs.guard.outputs.tag }}
         run: |
-          gh release create "$GITHUB_REF_NAME" upload/* \
+          gh release create "$TAG" upload/* \
             --repo "$GITHUB_REPOSITORY" \
-            --title "$GITHUB_REF_NAME" \
+            --title "$TAG" \
+            --target "$GITHUB_SHA" \
             --generate-notes \
             --draft
