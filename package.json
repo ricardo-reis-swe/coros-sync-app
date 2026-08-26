@@ -1,7 +1,7 @@
 {
   "name": "coros-sync-app",
   "productName": "coros-sync-app",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Import local audio, transcode it to mp3, and sync it onto a COROS watch over USB.",
   "main": ".webpack/main",
   "private": true,
