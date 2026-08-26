@@ -19,6 +19,11 @@ const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     extraResource: ['resources/bin'],
+    // Without the usage string TCC denies the watch's volume silently — no prompt can even fire. (DECISIONS §4, ADR-0045)
+    extendInfo: {
+      NSRemovableVolumesUsageDescription:
+        'Coros Sync needs access to your watch to list and copy music onto it.',
+    },
   },
   rebuildConfig: {},
   hooks: {
