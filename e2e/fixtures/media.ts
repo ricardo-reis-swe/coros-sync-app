@@ -11,6 +11,9 @@ const exec = promisify(execFile);
 // The same static build the app ships, so a fixture cannot be decodable by a codec the app lacks.
 const ffmpeg = path.join(REPO, 'resources', 'bin', 'ffmpeg');
 
+// That build encodes mp3 and nothing else, so the m4b needs a fuller one — decoding it is still the app's job.
+const generator = process.env.E2E_FFMPEG ?? ffmpeg;
+
 // Cached across runs: a sine is cheap, an hour of encoded sine is not. Keyed by name, never by mtime.
 const CACHE = path.join(tmpdir(), 'coros-e2e-media');
 
@@ -59,7 +62,7 @@ export const audiobookFile = (name: string, chapters: ChapterSpec[]): Promise<st
         const metaPath = `${out}.meta.txt`;
         await writeFile(metaPath, meta.join('\n'), 'utf8');
 
-        await exec(ffmpeg, [
+        await exec(generator, [
             '-y',
             '-f', 'lavfi',
             '-i', `sine=frequency=220:duration=${total}`,

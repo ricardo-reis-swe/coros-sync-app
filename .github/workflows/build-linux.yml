@@ -30,7 +30,8 @@ jobs:
       - name: Install packaging tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y fakeroot dpkg rpm xvfb
+          # ffmpeg is for the e2e fixtures only: the bundled build encodes mp3 and cannot write an m4b.
+          sudo apt-get install -y fakeroot dpkg rpm xvfb ffmpeg
 
       - run: npm ci
 
@@ -65,6 +66,8 @@ jobs:
       # After make, never before: `test:e2e` repackages with the inspector fuse open, and
       # out/make must hold the shipped build rather than the one Playwright can attach to.
       - name: e2e
+        env:
+          E2E_FFMPEG: /usr/bin/ffmpeg
         run: xvfb-run --auto-servernum npm run test:e2e
 
       - uses: actions/upload-artifact@v4
