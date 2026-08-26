@@ -16,7 +16,7 @@ Every probe and every transcode in this app is [FFmpeg](https://ffmpeg.org), and
 [yt-dlp](https://github.com/yt-dlp/yt-dlp) is what fills the library it syncs. Both are
 free software and both run on donations.
 
-FFmpeg is not a niche dependency — it runs most of the video on the internet. Google
+FFmpeg runs most of the video on the internet. Google
 puts YouTube through it, Netflix, Meta and Amazon transcode with it, Microsoft ships it
 in Azure's media pipeline, Chrome and Firefox decode with its libraries, and VLC is
 built on them. A handful of largely unpaid maintainers keep all of that working.
@@ -36,15 +36,9 @@ built on them. A handful of largely unpaid maintainers keep all of that working.
 
 ## Why it exists
 
-I listen to audiobooks, podcasts and long YouTube videos when I run, and I had a few
-scripts lying around to download, convert and transfer them. I also added a way to
-split long files into parts, because the watch gives you no way to seek to a spot
-inside a track.
-
-The watch does not play files in the order you upload them either. It orders them by
-the timestamp on each file's directory entry. The scripts worked around all of this.
-
-Eventually it seemed worth turning them into an app.
+I listen to mainly audiobooks or long YouTube videos when I run, and created a few
+scripts to download, convert, split, rename and sync by order the resulting files.
+Decided to turn that process into an application so it could be shared.
 
 Everything runs locally. The only network call is yt-dlp fetching a YouTube URL you
 paste in.
@@ -56,19 +50,14 @@ Work in progress. Issues and suggestions welcome.
 Downloads are on the [Releases](../../releases) page. Nothing else to install — FFmpeg and
 yt-dlp ship inside. Plug the watch in as USB storage before you start.
 
-| Platform | File | First launch |
-| --- | --- | --- |
-| macOS 12+ | the `darwin-arm64` zip for Apple silicon, `darwin-x64` for Intel | Unzip, drag to Applications. macOS refuses it — **System Settings → Privacy & Security → Open Anyway**. |
-| Windows 10+ | the `Setup.exe` | SmartScreen warns — **More info → Run anyway**. |
-| Linux | the `.deb` or `.rpm` | `sudo apt install ./<file>.deb`, or `sudo dnf install ./<file>.rpm` |
+| Platform    | File                                                             | First launch                                                                                            |
+| ----------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| macOS 12+   | the `darwin-arm64` zip for Apple silicon, `darwin-x64` for Intel | Unzip, drag to Applications. macOS refuses it — **System Settings → Privacy & Security → Open Anyway**. |
+| Windows 10+ | the `Setup.exe`                                                  | SmartScreen warns — **More info → Run anyway**.                                                         |
+| Linux       | the `.deb` or `.rpm`                                             | `sudo apt install ./<file>.deb`, or `sudo dnf install ./<file>.rpm`                                     |
 
 Both warnings say the same thing: the macOS build is signed ad-hoc and the Windows one is
-not signed at all. Certificates cost money every year; this does not.
-
-macOS asks for access to the watch the first time it reads the volume. Say yes — denied,
-the app can see the watch is plugged in but nothing on it.
-
-_No build is published yet. The first tag makes one._
+not signed at all.
 
 ### Instructions
 
@@ -80,7 +69,7 @@ sync. **Eject** unmounts.
 **2 · Import.** **Import Media** for music and podcasts: one file in, one mp3 out.
 **Import Audiobook** cuts at chapter marks, splitting any chapter longer than the split
 length. The arrow beside either takes a whole folder. **Import URL** hands a YouTube
-link to yt-dlp: the audio lands in **Library** as a *source*, and **Process** still
+link to yt-dlp: the audio lands in **Library** as a _source_, and **Process** still
 makes the mp3. If URL imports start failing, YouTube has changed — **Update yt-dlp** in
 Settings. Titles can be renamed or deleted until processed.
 
@@ -195,11 +184,6 @@ npm start
 
 No unit tests, by design — the specs in [e2e/](e2e/) drive the real packaged binary, with
 the native dialogs stubbed in the harness so nothing in `src/` knows a test exists.
-
-**Status.** Import → process → stage → sync works and is under e2e test, URL import
-included (ADR-0027, ADR-0055, ADR-0056). Order is confirmed durable across a power cycle.
-Open: playlist links import only their first entry; how often a release should move the
-pinned yt-dlp, which goes stale in about a month; macOS notarisation.
 
 ### License
 
