@@ -84,8 +84,7 @@ jobs:
             done
           ls -l upload
 
-      # Draft, not live: the LGPL notices these binaries owe are not in the release yet
-      # (resources/README.md § Shipping). Publishing is a human step until they are.
+      # Draft, not live: the notices ship now, so this is a last human look rather than a blocker.
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
