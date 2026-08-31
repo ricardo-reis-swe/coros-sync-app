@@ -19,3 +19,9 @@ export const resolveFfprobe = () => bundled('ffprobe');
 
 /** The copy we shipped. A user's own is a setting the adapter reads, not a path we build. (ADR-0055) */
 export const resolveYtdlp = () => bundled('yt-dlp');
+
+/** Linux embeds no icon in the executable and has no bundle to read one from, so the window must be handed a path. (ARCHITECTURE §9.2) */
+export const resolveIcon = (): string =>
+    app.isPackaged
+        ? path.join(process.resourcesPath, 'icon.png')
+        : path.join(app.getAppPath(), 'assets', 'icon.png');

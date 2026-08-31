@@ -18,7 +18,10 @@ import { rendererConfig } from './webpack.renderer.config';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    extraResource: ['resources/bin'],
+    // Extensionless: Packager appends .icns or .ico per platform. Regenerate with `npm run icons`.
+    icon: 'assets/icon',
+    // icon.png rides along for Linux, which resolves it at window creation rather than from a bundle.
+    extraResource: ['resources/bin', 'assets/icon.png'],
     // Without the usage string TCC denies the watch's volume silently — no prompt can even fire. (DECISIONS §4, ADR-0045)
     extendInfo: {
       NSRemovableVolumesUsageDescription:
@@ -41,10 +44,10 @@ const config: ForgeConfig = {
     },
   },
   makers: [
-    new MakerSquirrel({}),
+    new MakerSquirrel({ setupIcon: 'assets/icon.ico' }),
     new MakerZIP({}, ['darwin']),
-    new MakerRpm({}),
-    new MakerDeb({}),
+    new MakerRpm({ options: { icon: 'assets/icon.png' } }),
+    new MakerDeb({ options: { icon: 'assets/icon.png' } }),
   ],
   plugins: [
     new AutoUnpackNativesPlugin({}),

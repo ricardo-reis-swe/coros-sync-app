@@ -3,7 +3,7 @@ import { registerGateway } from './main/ipc/gateway.ipc';
 import { reconcileOnStartup } from './main/coordinators/processing.coordinator';
 import { sweepSourcesOnStartup } from './main/coordinators/download.coordinator';
 import { openSchema } from './main/adapters/db/db';
-import { isPackaged } from './main/utils/resolvers';
+import { isPackaged, resolveIcon } from './main/utils/resolvers';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -59,6 +59,8 @@ const createWindow = async (): Promise<void> => {
         width: 1280,
         minHeight: 620,
         minWidth: 940,
+        // macOS reads the bundle and Windows the exe; only Linux needs telling. (ARCHITECTURE §9.2)
+        ...(process.platform === 'linux' ? { icon: resolveIcon() } : {}),
         webPreferences: {
             preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
             // Declared, not inherited: these three ARE the sandbox CONTRACTS §4 describes.

@@ -12,6 +12,7 @@
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
     "verify:bin": "node scripts/verify-bin.mjs",
+    "icons": "node scripts/make-icons.mjs",
     "package:e2e": "E2E_FUSES=1 electron-forge package",
     "test:e2e": "npm run package:e2e && playwright test"
   },
