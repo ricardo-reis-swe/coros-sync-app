@@ -39,10 +39,12 @@ jobs:
           else
             # No tag to read, so package.json is the version someone chose; gh cuts the tag at publish.
             tag=v$pkg
-            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-              echo "::error::$tag is already released — bump package.json before dispatching"
-              exit 1
-            fi
+          fi
+
+          # Both paths: `gh release create` cannot overwrite, and it is the last step of three builds.
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::$tag already has a release — delete it, or bump the version"
+            exit 1
           fi
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
