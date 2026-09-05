@@ -12,10 +12,7 @@ _An independent project. Not affiliated with, endorsed by or supported by COROS_
 
 ## Support the tools underneath
 
-Every probe and every transcode in this app is [FFmpeg](https://ffmpeg.org), and
-[yt-dlp](https://github.com/yt-dlp/yt-dlp) is what fills the library it syncs. Both are
-free software and both run on donations.
-
+Every probe and every transcode in this app is [FFmpeg](https://ffmpeg.org).
 FFmpeg runs most of the video on the internet. Google
 puts YouTube through it, Netflix, Meta and Amazon transcode with it, Microsoft ships it
 in Azure's media pipeline, Chrome and Firefox decode with its libraries, and VLC is
@@ -32,7 +29,6 @@ built on them. A handful of largely unpaid maintainers keep all of that working.
 </p>
 
 - **Donate to FFmpeg** → [ffmpeg.org/donations.html](https://ffmpeg.org/donations.html)
-- **Donate to yt-dlp** → [its maintainers' sponsor links](https://github.com/yt-dlp/yt-dlp/blob/master/Maintainers.md)
 
 ## Why it exists
 
