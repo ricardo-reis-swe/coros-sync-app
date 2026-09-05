@@ -21,11 +21,7 @@ built on them. A handful of largely unpaid maintainers keep all of that working.
 <p>
   <a href="https://ffmpeg.org/donations.html">
     <img src="https://upload.wikimedia.org/wikipedia/commons/5/5f/FFmpeg_Logo_new.svg" alt="FFmpeg" height="42">
-  </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://github.com/yt-dlp/yt-dlp/blob/master/Maintainers.md">
-    <img src="https://raw.githubusercontent.com/yt-dlp/yt-dlp/master/.github/banner.svg" alt="yt-dlp" height="42">
-  </a>
+  </a> 
 </p>
 
 - **Donate to FFmpeg** → [ffmpeg.org/donations.html](https://ffmpeg.org/donations.html)
