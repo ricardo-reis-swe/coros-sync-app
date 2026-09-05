@@ -2,7 +2,7 @@
 
 Import local music and audiobooks, transcode them to mp3, optionally split the long
 ones into parts, and sync them onto a Coros watch over USB. Built against a Pace 3;
-other models may (not) work, tell me and i can add a table with support.
+other models may (not) work, tell me and i can add a table with support. 
 
 _An independent project. Not affiliated with, endorsed by or supported by COROS_
 
